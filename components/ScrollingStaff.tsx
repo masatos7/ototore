@@ -4,6 +4,33 @@ import { useEffect, useRef } from "react";
 import type { NoteEvent } from "@/lib/osmdUtils";
 import type { JudgementResult } from "@/lib/judgement";
 
+// Bravura rest glyph paths (extracted from Bravura.woff via fontTools)
+// Coordinate system: 250 units = 1 staff space, y-axis points UP (flip on canvas)
+// Each glyph origin (0,0) is the staff reference point for that rest type
+const BRAVURA_SCALE = 13 / 250; // 13 = LINE_SPACING
+
+// Path2D is browser-only — lazy-init to avoid SSR crash
+const REST_SVG = {
+  whole:   "M282 -109V-17Q282 -6 274 2Q267 9 256 9H26Q15 9 7 2Q0 -6 0 -17V-109Q0 -120 7 -127Q15 -135 26 -135H256Q267 -135 274 -127Q282 -120 282 -109Z",
+  half:    "M282 24V116Q282 127 274 135Q267 142 256 142H26Q15 142 7 135Q0 127 0 116V24Q0 13 7 6Q15 -2 26 -2H256Q267 -2 274 6Q282 13 282 24Z",
+  quarter: "M78 -38Q90 -53 101 -68Q111 -82 121 -98Q123 -101 125 -106Q127 -110 127 -112Q127 -113 127 -114Q127 -115 126 -116Q124 -119 122 -120Q119 -121 115 -121Q112 -121 107 -120Q102 -119 99 -118Q97 -118 95 -118L87 -115Q48 -116 25 -145Q2 -173 1 -211Q1 -248 32 -286Q62 -324 117 -366Q123 -370 130 -373Q137 -375 143 -375Q148 -375 153 -373Q157 -372 158 -369Q160 -365 160 -362Q160 -355 155 -349Q150 -343 144 -338Q134 -337 127 -323Q120 -310 118 -302Q114 -290 114 -276Q114 -245 130 -224Q146 -204 177 -203Q199 -203 221 -209Q243 -215 256 -220L257 -221Q260 -222 262 -222Q264 -222 265 -222Q270 -222 270 -218Q269 -208 256 -189Q243 -171 233 -161Q204 -127 184 -95Q165 -63 164 -22Q164 -20 164 -19L165 -12Q165 -10 165 -9Q169 34 190 71Q210 107 231 138Q235 146 235 153Q235 161 233 166Q231 172 231 172Q222 182 155 262Q87 342 66 365Q62 369 57 371Q53 373 48 373Q40 373 34 368Q28 363 28 352Q28 345 32 336Q38 327 64 292Q90 257 93 202Q93 174 80 142Q66 110 33 75Q26 67 22 60Q19 52 19 46Q20 35 24 29Q28 22 29 22Z",
+  eighth:  "M134 107Q133 135 114 154Q95 173 67 174Q39 173 20 154Q1 135 0 107Q0 91 8 78Q15 65 27 56Q39 48 53 43Q67 39 81 39Q92 39 102 41Q112 43 120 46Q130 49 138 52Q147 56 156 61Q159 62 161 62Q164 62 165 59Q166 57 166 53Q166 48 165 42Q159 21 124 -79Q89 -179 72 -238Q73 -247 84 -249Q95 -251 101 -251Q109 -251 119 -249Q128 -247 136 -241Q144 -218 188 -64Q231 90 237 112Q240 126 243 136Q246 147 247 151Q246 158 242 162Q237 166 235 167Q234 167 231 167Q228 166 224 163Q217 155 189 128Q161 101 134 97Z",
+  sixteenth:"M208 111Q207 140 188 159Q169 178 140 179Q111 178 92 159Q73 140 72 111Q73 80 98 62Q122 43 152 43Q172 43 193 49Q213 55 230 65Q234 67 237 67Q242 67 242 60Q239 40 216 -30Q192 -100 184 -120Q177 -134 162 -143Q147 -151 135 -151Q136 -145 136 -141Q135 -112 116 -93Q97 -74 68 -73Q39 -74 20 -93Q1 -112 0 -141Q1 -172 26 -190Q50 -209 80 -209Q100 -209 119 -203Q138 -197 155 -188Q159 -188 159 -194L158 -195Q158 -196 158 -196L63 -479Q63 -479 63 -480L62 -481Q62 -488 69 -494Q77 -500 93 -500Q114 -500 121 -493Q129 -486 131 -477L247 -96Q267 -31 279 12Q292 54 292 56Q294 61 305 102Q316 142 319 157Q319 158 320 159Q320 160 320 161Q320 166 316 168Q312 171 310 172Q306 172 304 171Q301 170 299 168Q292 160 264 133Q235 105 208 101Z",
+};
+let _restPaths: { whole: Path2D; half: Path2D; quarter: Path2D; eighth: Path2D; sixteenth: Path2D } | null = null;
+function getRestPaths() {
+  if (!_restPaths) {
+    _restPaths = {
+      whole:    new Path2D(REST_SVG.whole),
+      half:     new Path2D(REST_SVG.half),
+      quarter:  new Path2D(REST_SVG.quarter),
+      eighth:   new Path2D(REST_SVG.eighth),
+      sixteenth:new Path2D(REST_SVG.sixteenth),
+    };
+  }
+  return _restPaths;
+}
+
 const CLEF_BASE_W  = 68;
 const KS_SPACING   = 9;
 const KS_START_X   = 64;
@@ -54,6 +81,7 @@ interface Props {
   elapsedSec: number;
   bpm: number;
   beatsPerMeasure: number;
+  beatType?: number;
   startMeasure: number;
   endMeasure: number;
   keySignature?: number;
@@ -65,6 +93,7 @@ export default function ScrollingStaff({
   elapsedSec,
   bpm,
   beatsPerMeasure,
+  beatType,
   startMeasure,
   endMeasure,
   keySignature = 0,
@@ -116,7 +145,8 @@ export default function ScrollingStaff({
 
       // ── Clef panel width ─────────────────────────────────────────────
       const numKs  = Math.abs(ks);
-      const clefW  = CLEF_BASE_W + (numKs > 0 ? numKs * KS_SPACING + 4 : 0);
+      const TS_W   = beatType ? 22 : 0;
+      const clefW  = CLEF_BASE_W + (numKs > 0 ? numKs * KS_SPACING + 4 : 0) + TS_W;
       const playheadX = clefW + 28;
 
       // ── Staff geometry ────────────────────────────────────────────────
@@ -223,25 +253,53 @@ export default function ScrollingStaff({
         }
       }
 
+      // ── Time signature ────────────────────────────────────────────────
+      if (beatType) {
+        const tsx  = clefW - TS_W / 2;  // centre x of the time-sig area
+        const tsFs = LINE_SPACING * 2.1;
+        ctx.fillStyle    = "#111";
+        ctx.font         = `bold ${tsFs}px "Times New Roman", serif`;
+        ctx.textBaseline = "middle";
+        ctx.textAlign    = "center";
+        // Treble staff: upper number between lines 3–4 (step 6), lower between 1–2 (step 2)
+        ctx.fillText(String(beatsPerMeasure), tsx, sy(6));
+        ctx.fillText(String(beatType),        tsx, sy(2));
+        if (hasBass) {
+          ctx.fillText(String(beatsPerMeasure), tsx, sy(-6));
+          ctx.fillText(String(beatType),        tsx, sy(-10));
+        }
+        ctx.textAlign = "left";
+      }
+
       // ── Measure lines ─────────────────────────────────────────────────
-      for (let mi = 0; mi <= totalMeasures; mi++) {
-        const tLine = playheadX + (mi * measureDur - elapsed) * SCROLL_SPEED;
-        const x = tLine - 12;  // offset left so barline clearly precedes the first note of the measure
+      // Barline x = midpoint between last note of previous measure and first note of next measure
+      for (let mi = 1; mi <= totalMeasures; mi++) {
+        const boundaryTimeSec = mi * measureDur;
+        let x: number;
+        if (mi === totalMeasures || allNotes.length === 0) {
+          x = playheadX + (boundaryTimeSec - elapsed) * SCROLL_SPEED;
+        } else {
+          const eps = 0.01;
+          let prevTime = -Infinity, nextTime = Infinity;
+          for (const note of allNotes) {
+            if (note.startTimeSec < boundaryTimeSec - eps && note.startTimeSec > prevTime) prevTime = note.startTimeSec;
+            if (note.startTimeSec >= boundaryTimeSec - eps && note.startTimeSec < nextTime) nextTime = note.startTimeSec;
+          }
+          if (prevTime > -Infinity && nextTime < Infinity) {
+            x = (playheadX + (prevTime - elapsed) * SCROLL_SPEED + playheadX + (nextTime - elapsed) * SCROLL_SPEED) / 2;
+          } else {
+            x = playheadX + (boundaryTimeSec - elapsed) * SCROLL_SPEED;
+          }
+        }
         if (x <= clefW || x > W + 2) continue;
         const isFinal = mi === totalMeasures;
-        ctx.strokeStyle = isFinal ? "#333" : "#888";
+        ctx.strokeStyle = "#2a2a2a";
         ctx.lineWidth   = isFinal ? 2 : 1;
         ctx.beginPath();
         ctx.moveTo(x, trebleStaffTop);
         ctx.lineTo(x, hasBass ? bassBottomY : trebleStaffBottom);
         ctx.stroke();
         ctx.lineWidth = 1;
-        if (!isFinal && tLine + 4 < W) {
-          ctx.fillStyle    = "#aaa";
-          ctx.font         = "bold 10px sans-serif";
-          ctx.textBaseline = "alphabetic";
-          ctx.fillText(String(startMeasure + mi + 1), x + 3, trebleStaffTop - 3);
-        }
       }
 
       // ── Key-sig accidental pitch classes ──────────────────────────────
@@ -252,6 +310,93 @@ export default function ScrollingStaff({
       // ── Notes ─────────────────────────────────────────────────────────
       const NRX = 6, NRY = 4.5;
 
+      // ── Beam group pre-computation ────────────────────────────────────
+      // Find consecutive sub-beat notes (8th / 16th) per part with no gap
+      const beamGroupsList: { indices: number[]; up: boolean; stemTipYs: number[] }[] = [];
+      const beamGroupOf   = new Map<number, number>(); // ni → group index
+      const beamStemTipY  = new Map<number, number>(); // ni → per-note stem tip y (slanted)
+
+      for (const part of [0, 1] as const) {
+        const pIdxs: number[] = [];
+        for (let i = 0; i < allNotes.length; i++) {
+          if (allNotes[i].part === part && !allNotes[i].isRest) pIdxs.push(i);
+        }
+        let pi = 0;
+        while (pi < pIdxs.length) {
+          const ni0 = pIdxs[pi];
+          const db0 = (allNotes[ni0].durationSec * bpm) / 60;
+          if (db0 >= 0.6 || db0 < 0.15) { pi++; continue; }
+
+          const gNis: number[] = [ni0];
+          let pj = pi + 1;
+          while (pj < pIdxs.length) {
+            const prev = allNotes[pIdxs[pj - 1]];
+            const next = allNotes[pIdxs[pj]];
+            if (Math.abs(next.startTimeSec - (prev.startTimeSec + prev.durationSec)) > 0.025) break;
+            const dbN = (next.durationSec * bpm) / 60;
+            if (dbN >= 0.6 || dbN < 0.15) break;
+            // Beams must not cross measure boundaries
+            if (Math.floor(next.startTimeSec / measureDur) !== Math.floor(prev.startTimeSec / measureDur)) break;
+            gNis.push(pIdxs[pj]);
+            pj++;
+          }
+
+          if (gNis.length >= 2) {
+            const step0 = midiToStep(allNotes[gNis[0]].midiNote);
+            const up    = part === 1 ? false : step0 < 4;
+            const floorY = part === 1 ? bassBottomY : trebleStaffBottom;
+
+            const natTip = (midi: number) => {
+              const s = midiToStep(midi);
+              const noteY = sy(s);
+              return up
+                ? Math.min(noteY - LINE_SPACING * 3.5, trebleStaffTop - 2)
+                : Math.max(noteY + LINE_SPACING * 3.5, floorY + 2);
+            };
+
+            // Slanted beam: interpolate between natural tips of first and last notes,
+            // clamped to ±2 staff spaces total slope
+            let tip0 = natTip(allNotes[gNis[0]].midiNote);
+            let tipN = natTip(allNotes[gNis[gNis.length - 1]].midiNote);
+            const maxSlope = LINE_SPACING * 2;
+            if (Math.abs(tipN - tip0) > maxSlope) {
+              tipN = tip0 + Math.sign(tipN - tip0) * maxSlope;
+            }
+            const t0 = allNotes[gNis[0]].startTimeSec;
+            const tN = allNotes[gNis[gNis.length - 1]].startTimeSec;
+            const stemTipYs = gNis.map(gni => {
+              const frac = tN > t0 ? (allNotes[gni].startTimeSec - t0) / (tN - t0) : 0;
+              return tip0 + frac * (tipN - tip0);
+            });
+
+            const gi = beamGroupsList.length;
+            beamGroupsList.push({ indices: gNis, up, stemTipYs });
+            gNis.forEach((gni, pos) => {
+              beamGroupOf.set(gni, gi);
+              beamStemTipY.set(gni, stemTipYs[pos]);
+            });
+          }
+          pi = pj;
+        }
+      }
+      const beamNxMap  = new Map<number, number>(); // ni → pixel x (filled in note loop)
+      const beamColMap = new Map<number, string>(); // ni → stroke colour
+
+      // ── Tie pairs pre-computation ─────────────────────────────────────
+      const tiePairs: { fromNi: number; toNi: number }[] = [];
+      for (let ni = 0; ni < allNotes.length; ni++) {
+        if (!allNotes[ni].tieStart || allNotes[ni].isRest) continue;
+        const from = allNotes[ni];
+        for (let nj = ni + 1; nj < allNotes.length; nj++) {
+          const to = allNotes[nj];
+          if (to.startTimeSec > from.startTimeSec + from.durationSec + 0.05) break;
+          if (to.part === from.part && to.midiNote === from.midiNote && !to.isRest) {
+            tiePairs.push({ fromNi: ni, toNi: nj });
+            break;
+          }
+        }
+      }
+
       for (let ni = 0; ni < allNotes.length; ni++) {
         const note = allNotes[ni];
         const nx = playheadX + (note.startTimeSec - elapsed) * SCROLL_SPEED;
@@ -260,56 +405,35 @@ export default function ScrollingStaff({
         const past = note.startTimeSec < elapsed - 0.05;
         const { fill, stroke } = noteColor(jArr[ni], past);
 
-        // ── Rest ────────────────────────────────────────────────────────
+        // ── Rest (Bravura Path2D) ────────────────────────────────────────
         if (note.isRest) {
           const durBeats = (note.durationSec * bpm) / 60;
           const isBass   = note.part === 1;
-          ctx.fillStyle   = fill;
-          ctx.strokeStyle = fill;
-
+          // Reference staff line for glyph origin (y=0 in font coords):
+          //   whole  → 4th line from bottom (step 6 treble / -6 bass)
+          //   others → 3rd line from bottom (step 4 treble / -8 bass)
+          const rp = getRestPaths();
+          let restPath: Path2D;
+          let cx: number; // horizontal centre of glyph in font units
+          let refStep: number;
           if (durBeats >= 3.8) {
-            // 全休符: 第4線からぶら下がる黒い長方形
-            const lineY = sy(isBass ? -6 : 6);
-            const rw = LINE_SPACING * 1.5, rh = LINE_SPACING * 0.5;
-            ctx.fillRect(nx - rw / 2, lineY, rw, rh);
+            restPath = rp.whole;     cx = 141; refStep = isBass ? -6  : 6;
           } else if (durBeats >= 1.75) {
-            // 二分休符: 第3線の上に乗る黒い長方形
-            const lineY = sy(isBass ? -8 : 4);
-            const rw = LINE_SPACING * 1.5, rh = LINE_SPACING * 0.5;
-            ctx.fillRect(nx - rw / 2, lineY - rh, rw, rh);
+            restPath = rp.half;      cx = 141; refStep = isBass ? -8  : 4;
           } else if (durBeats >= 0.6) {
-            // 四分休符: ジグザグ + 底のフック
-            const yt = sy(isBass ? -5 : 7);
-            const yb = sy(isBass ? -11 : 1);
-            const h  = yb - yt;
-            ctx.lineWidth = 2.2; ctx.lineCap = "round"; ctx.lineJoin = "round";
-            ctx.beginPath();
-            ctx.moveTo(nx + 3,  yt);
-            ctx.lineTo(nx - 3,  yt + h * 0.24);
-            ctx.lineTo(nx + 5,  yt + h * 0.44);
-            ctx.lineTo(nx - 4,  yt + h * 0.62);
-            ctx.lineTo(nx + 1,  yt + h * 0.74);
-            ctx.stroke();
-            ctx.lineWidth = 2.0;
-            ctx.beginPath();
-            ctx.arc(nx - 1, yt + h * 0.88, 3.2, Math.PI * 0.75, Math.PI * 2.25);
-            ctx.stroke();
-            ctx.lineWidth = 1; ctx.lineCap = "butt"; ctx.lineJoin = "miter";
+            restPath = rp.quarter;   cx = 136; refStep = isBass ? -8  : 4;
+          } else if (durBeats >= 0.3) {
+            restPath = rp.eighth;    cx = 124; refStep = isBass ? -8  : 4;
           } else {
-            // 八分休符: 斜めの棒 + 上端に丸ドット
-            const yt = sy(isBass ? -6 : 6);
-            const yb = sy(isBass ? -10 : 2);
-            const h  = yb - yt;
-            ctx.lineWidth = 2.0; ctx.lineCap = "round";
-            ctx.beginPath();
-            ctx.moveTo(nx - 2, yb);
-            ctx.lineTo(nx + 2, yt + h * 0.35);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.arc(nx + 4, yt + h * 0.12, 3.5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.lineWidth = 1; ctx.lineCap = "butt";
+            restPath = rp.sixteenth; cx = 160; refStep = isBass ? -8  : 4;
           }
+          ctx.fillStyle = fill;
+          ctx.save();
+          ctx.translate(nx, sy(refStep));
+          ctx.scale(BRAVURA_SCALE, -BRAVURA_SCALE); // flip y: font=up, canvas=down
+          ctx.translate(-cx, 0);                    // centre horizontally
+          ctx.fill(restPath);
+          ctx.restore();
           continue;
         }
 
@@ -387,8 +511,6 @@ export default function ScrollingStaff({
         ctx.beginPath();
         ctx.ellipse(nx, ny, NRX, NRY, -0.15, 0, Math.PI * 2);
         if (durBeats >= 1.75) {
-          ctx.fillStyle = "#ffffff";   // white interior so barlines don't show through open heads
-          ctx.fill();
           ctx.strokeStyle = stroke; ctx.lineWidth = 1.8;
           ctx.stroke(); ctx.lineWidth = 1;
         } else {
@@ -396,15 +518,33 @@ export default function ScrollingStaff({
           ctx.fill();
         }
 
+        // ── Augmentation dot ────────────────────────────────────────────
+        if (note.dotted) {
+          // Dot goes in the space; if note is on a line (even step) move up one step
+          const dotStep = (step & 1) === 0 ? step + 1 : step;
+          ctx.fillStyle = fill;
+          ctx.beginPath();
+          ctx.arc(nx + NRX + 5, sy(dotStep), 2.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
         // ── Stem ────────────────────────────────────────────────────────
         if (durBeats < 3.8) {
           const up = note.part === 1 ? false : step < 4;
           const sx2 = up ? nx + NRX - 1 : nx - NRX + 1;
-          // Cap downward stems at own staff bottom so treble stems don't reach into bass staff
           const stemFloor = note.part === 1 ? bassBottomY : trebleStaffBottom;
-          const sy2 = up
-            ? Math.min(ny - LINE_SPACING * 3.5, trebleStaffTop - 2)
-            : Math.max(ny + LINE_SPACING * 3.5, stemFloor + 2);
+          const beamGi = beamGroupOf.get(ni);
+          const sy2 = beamGi !== undefined
+            ? (beamStemTipY.get(ni) ?? beamGroupsList[beamGi].stemTipYs[0])
+            : (up
+                ? Math.min(ny - LINE_SPACING * 3.5, trebleStaffTop - 2)
+                : Math.max(ny + LINE_SPACING * 3.5, stemFloor + 2));
+
+          if (beamGi !== undefined) {
+            beamNxMap.set(ni, nx);
+            beamColMap.set(ni, stroke);
+          }
+
           ctx.strokeStyle = stroke; ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.moveTo(sx2, ny + (up ? -NRY : NRY) * 0.5);
@@ -412,17 +552,15 @@ export default function ScrollingStaff({
           ctx.stroke();
           ctx.lineWidth = 1;
 
-          if (durBeats < 0.6 && durBeats >= 0.15) {
-            // Eighth note flag: starts at stem end, sweeps right then curls back
-            const fl = LINE_SPACING * 1.4;  // flag length
+          if (beamGi === undefined && durBeats < 0.6 && durBeats >= 0.15) {
+            // Eighth / 16th note flag (only for un-beamed notes)
+            const fl = LINE_SPACING * 1.4;
             ctx.strokeStyle = stroke; ctx.lineWidth = 1.8;
             ctx.beginPath();
             if (up) {
-              // Stem-up: flag hangs down-right from top of stem
               ctx.moveTo(sx2, sy2);
               ctx.bezierCurveTo(sx2 + fl, sy2 + fl * 0.1, sx2 + fl * 1.1, sy2 + fl * 0.7, sx2 + fl * 0.4, sy2 + fl * 1.2);
             } else {
-              // Stem-down: flag sweeps up-right from bottom of stem
               ctx.moveTo(sx2, sy2);
               ctx.bezierCurveTo(sx2 + fl, sy2 - fl * 0.1, sx2 + fl * 1.1, sy2 - fl * 0.7, sx2 + fl * 0.4, sy2 - fl * 1.2);
             }
@@ -454,6 +592,62 @@ export default function ScrollingStaff({
           ctx.ellipse(wx, wy, NRX, NRY, -0.15, 0, Math.PI * 2);
           ctx.fillStyle = "#dc2626"; ctx.fill();
         }
+      }
+
+      // ── Beams ────────────────────────────────────────────────────────
+      const beamH   = Math.round(LINE_SPACING * 0.42); // beam bar thickness
+      const beamGap = Math.round(LINE_SPACING * 0.52); // gap between double beams
+      for (const grp of beamGroupsList) {
+        const { indices, up } = grp;
+        const rendered = indices.filter(ni => beamNxMap.has(ni));
+        if (rendered.length < 2) continue;
+        const firstNi = rendered[0];
+        const lastNi  = rendered[rendered.length - 1];
+        const x1 = beamNxMap.get(firstNi)! + (up ? NRX - 1 : -(NRX - 1));
+        const x2 = beamNxMap.get(lastNi)!  + (up ? NRX - 1 : -(NRX - 1));
+        const y1 = beamStemTipY.get(firstNi)!;
+        const y2 = beamStemTipY.get(lastNi)!;
+        ctx.fillStyle = beamColMap.get(firstNi) ?? "#111111";
+
+        // Parallelogram beam (handles slant naturally)
+        const drawBeamBar = (level: number) => {
+          const yOff = level * (beamH + beamGap) * (up ? 1 : -1);
+          const thick = up ? beamH : -beamH;
+          ctx.beginPath();
+          ctx.moveTo(x1, y1 + yOff);
+          ctx.lineTo(x2, y2 + yOff);
+          ctx.lineTo(x2, y2 + yOff + thick);
+          ctx.lineTo(x1, y1 + yOff + thick);
+          ctx.closePath();
+          ctx.fill();
+        };
+        drawBeamBar(0);
+        // Second beam bar for 16th notes (durBeats ≈ 0.25)
+        const all16th = rendered.every(ni => (allNotes[ni].durationSec * bpm) / 60 < 0.35);
+        if (all16th) drawBeamBar(1);
+      }
+
+      // ── Ties ─────────────────────────────────────────────────────────
+      for (const { fromNi, toNi } of tiePairs) {
+        const fromNote = allNotes[fromNi];
+        const toNote   = allNotes[toNi];
+        const x1 = playheadX + (fromNote.startTimeSec - elapsed) * SCROLL_SPEED + NRX + 2;
+        const x2 = playheadX + (toNote.startTimeSec   - elapsed) * SCROLL_SPEED - NRX - 2;
+        if (x1 > W + 20 || x2 < clefW - 20 || x2 <= x1) continue;
+        const step = midiToStep(fromNote.midiNote);
+        const tieY = sy(step);
+        const past = fromNote.startTimeSec < elapsed - 0.05;
+        const { stroke } = noteColor(jArr[fromNi], past);
+        const up = fromNote.part === 1 ? false : step < 4;
+        const arcDir = up ? 1 : -1; // up stem → tie curves down; down stem → tie curves up
+        const arcH = Math.min((x2 - x1) * 0.22, LINE_SPACING * 1.5);
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x1, tieY);
+        ctx.quadraticCurveTo((x1 + x2) / 2, tieY + arcDir * arcH, x2, tieY);
+        ctx.stroke();
+        ctx.lineWidth = 1;
       }
 
       // ── Playhead (solid) ──────────────────────────────────────────────

@@ -194,10 +194,11 @@ export default function PracticeScreen({
            }}>
         <ScrollingStaff
           notes={noteEvents}
-          judgements={judgements}
+          judgements={demoIsPlaying ? [] : judgements}
           elapsedSec={elapsedSec}
           bpm={bpm}
           beatsPerMeasure={piece.timeSignature.beats}
+          beatType={piece.timeSignature.beatType}
           startMeasure={startMeasure}
           endMeasure={endMeasure}
           keySignature={keySignature}
@@ -207,10 +208,7 @@ export default function PracticeScreen({
         {status === "countdown" && countdown > 0 && (
           <div className="absolute inset-0 flex items-center justify-center z-10"
                style={{ background: "rgba(255,255,255,0.5)" }}>
-            <div className="flex flex-col items-center gap-1">
-              <div className="text-xs text-gray-400 font-medium tracking-widest">リードイン</div>
-              <div className="text-6xl font-black text-indigo-500 animate-pulse">{countdown}</div>
-            </div>
+            <div className="text-6xl font-black text-indigo-500 animate-pulse">{countdown}</div>
           </div>
         )}
       </div>

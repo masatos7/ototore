@@ -5,6 +5,8 @@ export interface NoteEvent {
   measureIndex: number;
   isRest: boolean;
   part: number; // 0 = treble/right hand, 1 = bass/left hand
+  dotted?: boolean;
+  tieStart?: boolean;
 }
 
 const STEP_SEMITONES: Record<string, number> = {
@@ -64,6 +66,9 @@ function parsePartMeasures(
       const rawDuration = durationEl ? parseInt(durationEl.textContent ?? "4", 10) : divisions;
       const beatDuration = rawDuration / divisions;
       const durationSec = beatsToSeconds(beatDuration, bpm);
+      const dotted   = noteEl.querySelector("dot") !== null;
+      const tieStart = Array.from(noteEl.querySelectorAll("tie"))
+        .some(t => t.getAttribute("type") === "start");
 
       if (mi >= startMeasure && mi < endMeasure) {
         if (isRest) {
@@ -74,6 +79,7 @@ function parsePartMeasures(
             measureIndex: mi,
             isRest: true,
             part: partIdx,
+            dotted,
           });
         } else {
           const pitchEl = noteEl.querySelector("pitch");
@@ -89,6 +95,8 @@ function parsePartMeasures(
               measureIndex: mi,
               isRest: false,
               part: partIdx,
+              dotted,
+              tieStart,
             });
           }
         }
