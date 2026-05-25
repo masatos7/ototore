@@ -263,53 +263,30 @@ export default function ScrollingStaff({
         if (note.isRest) {
           const durBeats = (note.durationSec * bpm) / 60;
           const isBass   = note.part === 1;
-          ctx.fillStyle   = fill;
-          ctx.strokeStyle = fill;
+          ctx.fillStyle    = fill;
+          ctx.textAlign    = "center";
+          ctx.textBaseline = "middle";
 
           if (durBeats >= 3.8) {
-            // 全音符休符: 4th line からぶら下がる黒い長方形
-            const lineY = sy(isBass ? -6 : 6);
-            const rw = LINE_SPACING * 1.3, rh = LINE_SPACING * 0.48;
-            ctx.fillRect(nx - rw / 2, lineY, rw, rh);
+            // 全休符 𝄻 U+1D13B — 第4線からぶら下がる
+            ctx.font = `${LINE_SPACING * 2.8}px "Times New Roman", serif`;
+            ctx.fillText("\u{1D13B}", nx, sy(isBass ? -6.5 : 5.5));
           } else if (durBeats >= 1.75) {
-            // 二分音符休符: 3rd line (middle) の上に乗る黒い長方形
-            const lineY = sy(isBass ? -8 : 4);
-            const rw = LINE_SPACING * 1.3, rh = LINE_SPACING * 0.48;
-            ctx.fillRect(nx - rw / 2, lineY - rh, rw, rh);
+            // 二分休符 𝄼 U+1D13C — 第3線の上に乗る
+            ctx.font = `${LINE_SPACING * 2.8}px "Times New Roman", serif`;
+            ctx.fillText("\u{1D13C}", nx, sy(isBass ? -7.5 : 4.5));
           } else if (durBeats >= 0.6) {
-            // 四分音符休符: ジグザグ＋底の丸
-            const top = sy(isBass ? -5 : 7);
-            const bot = sy(isBass ? -11 : 1);
-            const h   = bot - top;
-            ctx.lineWidth = 1.8;
-            ctx.lineCap   = "round";
-            ctx.beginPath();
-            ctx.moveTo(nx + 2,  top);
-            ctx.lineTo(nx - 3,  top + h * 0.22);
-            ctx.lineTo(nx + 5,  top + h * 0.42);
-            ctx.lineTo(nx - 4,  top + h * 0.60);
-            ctx.lineTo(nx + 1,  top + h * 0.72);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.arc(nx - 1, top + h * 0.87, 2.8, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.lineWidth = 1; ctx.lineCap = "butt";
+            // 四分休符 𝄽 U+1D13D
+            ctx.font = `${LINE_SPACING * 5.0}px "Times New Roman", serif`;
+            ctx.fillText("\u{1D13D}", nx, sy(isBass ? -8 : 4));
           } else {
-            // 八分音符休符: 斜め棒＋丸ドット
-            const top = sy(isBass ? -5 : 5);
-            const bot = sy(isBass ? -10 : 0);
-            const h   = bot - top;
-            ctx.lineWidth = 1.8;
-            ctx.lineCap   = "round";
-            ctx.beginPath();
-            ctx.moveTo(nx - 3, top + h * 0.65);
-            ctx.lineTo(nx + 2, top);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.arc(nx + 4, top + 3, 3, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.lineWidth = 1; ctx.lineCap = "butt";
+            // 八分休符 𝄾 U+1D13E
+            ctx.font = `${LINE_SPACING * 3.5}px "Times New Roman", serif`;
+            ctx.fillText("\u{1D13E}", nx, sy(isBass ? -7 : 5));
           }
+
+          ctx.textAlign    = "left";
+          ctx.textBaseline = "alphabetic";
           continue;
         }
 
