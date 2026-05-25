@@ -264,30 +264,52 @@ export default function ScrollingStaff({
         if (note.isRest) {
           const durBeats = (note.durationSec * bpm) / 60;
           const isBass   = note.part === 1;
-          ctx.fillStyle    = fill;
-          ctx.textAlign    = "center";
-          ctx.textBaseline = "middle";
+          ctx.fillStyle   = fill;
+          ctx.strokeStyle = fill;
 
           if (durBeats >= 3.8) {
-            // 全休符 𝄻 U+1D13B — 第4線からぶら下がる
-            ctx.font = `${LINE_SPACING * 2.8}px "Times New Roman", serif`;
-            ctx.fillText("\u{1D13B}", nx, sy(isBass ? -6.5 : 5.5));
+            // 全休符: 第4線からぶら下がる黒い長方形
+            const lineY = sy(isBass ? -6 : 6);
+            const rw = LINE_SPACING * 1.5, rh = LINE_SPACING * 0.5;
+            ctx.fillRect(nx - rw / 2, lineY, rw, rh);
           } else if (durBeats >= 1.75) {
-            // 二分休符 𝄼 U+1D13C — 第3線の上に乗る
-            ctx.font = `${LINE_SPACING * 2.8}px "Times New Roman", serif`;
-            ctx.fillText("\u{1D13C}", nx, sy(isBass ? -7.5 : 4.5));
+            // 二分休符: 第3線の上に乗る黒い長方形
+            const lineY = sy(isBass ? -8 : 4);
+            const rw = LINE_SPACING * 1.5, rh = LINE_SPACING * 0.5;
+            ctx.fillRect(nx - rw / 2, lineY - rh, rw, rh);
           } else if (durBeats >= 0.6) {
-            // 四分休符 𝄽 U+1D13D
-            ctx.font = `${LINE_SPACING * 5.0}px "Times New Roman", serif`;
-            ctx.fillText("\u{1D13D}", nx, sy(isBass ? -8 : 4));
+            // 四分休符: ジグザグ + 底のフック
+            const yt = sy(isBass ? -5 : 7);
+            const yb = sy(isBass ? -11 : 1);
+            const h  = yb - yt;
+            ctx.lineWidth = 2.2; ctx.lineCap = "round"; ctx.lineJoin = "round";
+            ctx.beginPath();
+            ctx.moveTo(nx + 3,  yt);
+            ctx.lineTo(nx - 3,  yt + h * 0.24);
+            ctx.lineTo(nx + 5,  yt + h * 0.44);
+            ctx.lineTo(nx - 4,  yt + h * 0.62);
+            ctx.lineTo(nx + 1,  yt + h * 0.74);
+            ctx.stroke();
+            ctx.lineWidth = 2.0;
+            ctx.beginPath();
+            ctx.arc(nx - 1, yt + h * 0.88, 3.2, Math.PI * 0.75, Math.PI * 2.25);
+            ctx.stroke();
+            ctx.lineWidth = 1; ctx.lineCap = "butt"; ctx.lineJoin = "miter";
           } else {
-            // 八分休符 𝄾 U+1D13E
-            ctx.font = `${LINE_SPACING * 3.5}px "Times New Roman", serif`;
-            ctx.fillText("\u{1D13E}", nx, sy(isBass ? -7 : 5));
+            // 八分休符: 斜めの棒 + 上端に丸ドット
+            const yt = sy(isBass ? -6 : 6);
+            const yb = sy(isBass ? -10 : 2);
+            const h  = yb - yt;
+            ctx.lineWidth = 2.0; ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.moveTo(nx - 2, yb);
+            ctx.lineTo(nx + 2, yt + h * 0.35);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(nx + 4, yt + h * 0.12, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.lineWidth = 1; ctx.lineCap = "butt";
           }
-
-          ctx.textAlign    = "left";
-          ctx.textBaseline = "alphabetic";
           continue;
         }
 
