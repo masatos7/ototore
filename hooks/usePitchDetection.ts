@@ -12,6 +12,7 @@ export interface PitchResult {
 interface PitchDetectionOptions {
   onPitch: (result: PitchResult) => void;
   clarityThreshold?: number;
+  amplitudeThreshold?: number; // RMS minimum (0.0~1.0)
 }
 
 export function usePitchDetection() {
@@ -76,6 +77,7 @@ export function usePitchDetection() {
       bufferRef.current = new Float32Array(new ArrayBuffer(bufferLength * 4));
 
       const detector = PitchDetector.forFloat32Array(bufferLength);
+      const amplitudeThreshold = opts.amplitudeThreshold ?? 0.015;
 
       setIsListening(true);
 
@@ -83,12 +85,24 @@ export function usePitchDetection() {
         if (!analyserRef.current || !bufferRef.current) return;
         analyserRef.current.getFloatTimeDomainData(bufferRef.current);
 
+        // RMS amplitude gate — ignore quiet sounds (ambient noise, speaker bleed)
+        let sum = 0;
+        for (let i = 0; i < bufferRef.current.length; i++) {
+          sum += bufferRef.current[i] * bufferRef.current[i];
+        }
+        const rms = Math.sqrt(sum / bufferRef.current.length);
+        if (rms < amplitudeThreshold) {
+          rafRef.current = requestAnimationFrame(detect);
+          return;
+        }
+
         const [frequency, clarity] = detector.findPitch(
           bufferRef.current,
           ctx.sampleRate
         );
 
-        if (clarity >= clarityThreshold && frequency > 50 && frequency < 4200) {
+        // Piano range: A1(55Hz)〜C7(2093Hz), clarity threshold for clean pitch
+        if (clarity >= clarityThreshold && frequency >= 80 && frequency <= 2100) {
           const midiNote = frequencyToMidi(frequency);
           optionsRef.current?.onPitch({ frequency, midiNote, clarity });
         }

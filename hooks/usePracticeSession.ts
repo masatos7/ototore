@@ -36,12 +36,14 @@ export function usePracticeSession() {
   const totalDurationSecRef = useRef<number>(0);
   const startIdRef = useRef(0);
   const countdownHandlesRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const pitchGatedRef = useRef(false);
 
   const { start: startPitch, stop: stopPitch, isListening, error: micError } = usePitchDetection();
   const { start: startMetronome, stop: stopMetronome } = useMetronome();
 
   const handlePitch = useCallback((midi: number) => {
     if (!sessionStartTimeRef.current) return;
+    if (pitchGatedRef.current) return;
     const currentTimeSec = (Date.now() - sessionStartTimeRef.current) / 1000;
 
     for (let i = 0; i < notesRef.current.length; i++) {
@@ -108,7 +110,8 @@ export function usePracticeSession() {
     // Start mic immediately so it's ready
     await startPitch({
       onPitch: ({ midiNote }) => handlePitch(midiNote),
-      clarityThreshold: 0.85,
+      clarityThreshold: 0.92,
+      amplitudeThreshold: 0.015,
     });
     if (isStale()) return;
 
@@ -142,7 +145,10 @@ export function usePracticeSession() {
             // sec is negative during lead-in (notes off-screen right), 0+ during practice
             setDisplayElapsedSec(sec);
           },
-          onBeat: () => {},
+          onBeat: () => {
+            pitchGatedRef.current = true;
+            setTimeout(() => { pitchGatedRef.current = false; }, 100);
+          },
           onComplete: () => {
             stopPitch();
             const finalJudgements = judgementsRef.current.map((j) =>
