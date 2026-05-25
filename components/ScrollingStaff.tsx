@@ -226,7 +226,7 @@ export default function ScrollingStaff({
       // ── Measure lines ─────────────────────────────────────────────────
       for (let mi = 0; mi <= totalMeasures; mi++) {
         const tLine = playheadX + (mi * measureDur - elapsed) * SCROLL_SPEED;
-        const x = tLine - 3;   // slightly left of notes so barline visually precedes the beat
+        const x = tLine - 12;  // offset left so barline clearly precedes the first note of the measure
         if (x <= clefW || x > W + 2) continue;
         const isFinal = mi === totalMeasures;
         ctx.strokeStyle = isFinal ? "#333" : "#888";
@@ -240,7 +240,7 @@ export default function ScrollingStaff({
           ctx.fillStyle    = "#aaa";
           ctx.font         = "bold 10px sans-serif";
           ctx.textBaseline = "alphabetic";
-          ctx.fillText(String(startMeasure + mi + 1), tLine + 3, trebleStaffTop - 3);
+          ctx.fillText(String(startMeasure + mi + 1), x + 3, trebleStaffTop - 3);
         }
       }
 
