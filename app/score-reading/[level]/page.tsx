@@ -34,7 +34,7 @@ export default function ScoreReadingLevelPage({ params }: PageProps) {
   };
 
   const handleResult = useCallback(
-    (accuracy: number, passed: boolean) => {
+    (accuracy: number, passed: boolean, _wrongCount: number) => {
       if (!selectedPiece) return;
       const key = `level-${level}`;
       updateScoreReading(key, accuracy, level, selectedPiece.slug);

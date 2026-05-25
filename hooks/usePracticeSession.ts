@@ -11,6 +11,7 @@ export interface SessionResult {
   accuracy: number;
   correctCount: number;
   totalCount: number;
+  wrongCount: number;
   passed: boolean;
 }
 
@@ -159,8 +160,9 @@ export function usePracticeSession() {
 
             const accuracy = calculateAccuracy(finalJudgements);
             const correct = finalJudgements.filter((j) => j.judgement === "correct").length;
+            const wrong = finalJudgements.filter((j) => j.judgement === "wrong").length;
             const total = finalJudgements.filter((j) => j.judgement !== "pending").length;
-            setSessionResult({ accuracy, correctCount: correct, totalCount: total, passed: accuracy >= 80 });
+            setSessionResult({ accuracy, correctCount: correct, totalCount: total, wrongCount: wrong, passed: accuracy >= 80 });
             setStatus("result");
             setProgress(0);
           },

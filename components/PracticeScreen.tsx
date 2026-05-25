@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import MetronomeControl from "./MetronomeControl";
 import JudgementOverlay from "./JudgementOverlay";
 import ScrollingStaff from "./ScrollingStaff";
@@ -18,7 +18,9 @@ interface PracticeScreenProps {
   startMeasure: number;
   endMeasure: number;
   handFilter?: HandFilter;
-  onResult?: (accuracy: number, passed: boolean) => void;
+  alwaysAdvance?: boolean;
+  onWrong?: () => void;
+  onResult?: (accuracy: number, passed: boolean, wrongCount: number) => void;
   onBack?: () => void;
 }
 
@@ -27,6 +29,8 @@ export default function PracticeScreen({
   startMeasure,
   endMeasure,
   handFilter = 'both',
+  alwaysAdvance = false,
+  onWrong,
   onResult,
   onBack,
 }: PracticeScreenProps) {
@@ -75,12 +79,15 @@ export default function PracticeScreen({
       setKeySignature(parseKeySignature(xmlText));
       const parsed = parseNotesFromXML(xmlText, bpm, startMeasure, endMeasure);
       events = filterHand(parsed);
-      notes = parsed.map((n) => ({
-        midiNote: n.midiNote,
-        startTimeSec: n.startTimeSec,
-        durationSec: n.durationSec,
-        isRest: n.isRest,
-      }));
+      // Judge only the notes the user is supposed to play (selected hand, no rests)
+      notes = filterHand(parsed)
+        .filter((n) => !n.isRest)
+        .map((n) => ({
+          midiNote: n.midiNote,
+          startTimeSec: n.startTimeSec,
+          durationSec: n.durationSec,
+          isRest: false,
+        }));
     } catch {
       const secPerBeat = 60 / bpm;
       const beatsTotal = measuresCount * piece.timeSignature.beats;
@@ -135,14 +142,37 @@ export default function PracticeScreen({
     demoPlay(events, leadInSec);
   }, [demoIsPlaying, demoStop, demoPlay, piece, bpm, startMeasure, endMeasure, filterHand]);
 
+  // Fire onWrong in real-time whenever a wrong note is judged
+  const onWrongRef = useRef(onWrong);
+  useEffect(() => { onWrongRef.current = onWrong; });
+  useEffect(() => {
+    if (lastJudgement === "wrong") onWrongRef.current?.();
+  }, [lastJudgement]);
+
   const handleResultAction = useCallback((retry: boolean) => {
     if (retry) {
       setNoteEvents([]);
       stop();
     } else if (sessionResult) {
-      onResult?.(sessionResult.accuracy, sessionResult.passed);
+      onResult?.(sessionResult.accuracy, sessionResult.passed, sessionResult.wrongCount);
     }
   }, [sessionResult, onResult, stop]);
+
+  // Auto-start on mount in session mode
+  const startPracticeRef = useRef(startPractice);
+  useEffect(() => { startPracticeRef.current = startPractice; });
+  useEffect(() => {
+    if (alwaysAdvance) startPracticeRef.current();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-advance in session mode
+  useEffect(() => {
+    if (!alwaysAdvance || status !== "result" || !sessionResult) return;
+    const timer = setTimeout(() => {
+      onResult?.(sessionResult.accuracy, sessionResult.passed, sessionResult.wrongCount);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [alwaysAdvance, status, sessionResult, onResult]);
 
   const handleDemoFromResult = useCallback(async () => {
     stop();
@@ -291,28 +321,32 @@ export default function PracticeScreen({
                 {sessionResult.correctCount} / {sessionResult.totalCount} 正解
               </div>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleDemoFromResult}
-                className="flex-1 py-3 rounded-lg bg-white border border-amber-200 text-amber-700 font-medium hover:bg-amber-50 text-sm"
-              >
-                ♪ お手本を聴く
-              </button>
-              <button
-                onClick={handleRetryFromResult}
-                className="flex-1 py-3 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 text-sm"
-              >
-                ▶ 練習スタート
-              </button>
-              {sessionResult.passed && (
+            {alwaysAdvance ? (
+              <div className="text-center text-xs text-gray-400 mt-1">まもなく次へ進みます...</div>
+            ) : (
+              <div className="flex gap-2">
                 <button
-                  onClick={() => handleResultAction(false)}
-                  className="flex-1 py-3 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 text-sm"
+                  onClick={handleDemoFromResult}
+                  className="flex-1 py-3 rounded-lg bg-white border border-amber-200 text-amber-700 font-medium hover:bg-amber-50 text-sm"
                 >
-                  次へ進む
+                  ♪ お手本を聴く
                 </button>
-              )}
-            </div>
+                <button
+                  onClick={handleRetryFromResult}
+                  className="flex-1 py-3 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 text-sm"
+                >
+                  ▶ 練習スタート
+                </button>
+                {sessionResult.passed && (
+                  <button
+                    onClick={() => handleResultAction(false)}
+                    className="flex-1 py-3 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 text-sm"
+                  >
+                    次へ進む
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
