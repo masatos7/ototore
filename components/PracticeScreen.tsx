@@ -11,10 +11,13 @@ import type { NoteEvent } from "@/lib/osmdUtils";
 import type { Piece } from "@/lib/pieces";
 import type { ActiveNote } from "@/lib/judgement";
 
+export type HandFilter = 'right' | 'left' | 'both';
+
 interface PracticeScreenProps {
   piece: Piece;
   startMeasure: number;
   endMeasure: number;
+  handFilter?: HandFilter;
   onResult?: (accuracy: number, passed: boolean) => void;
   onBack?: () => void;
 }
@@ -23,6 +26,7 @@ export default function PracticeScreen({
   piece,
   startMeasure,
   endMeasure,
+  handFilter = 'both',
   onResult,
   onBack,
 }: PracticeScreenProps) {
@@ -53,6 +57,12 @@ export default function PracticeScreen({
     stop,
   } = usePracticeSession();
 
+  const filterHand = useCallback((evts: NoteEvent[]) => {
+    if (handFilter === 'right') return evts.filter(n => n.part === 0);
+    if (handFilter === 'left')  return evts.filter(n => n.part === 1);
+    return evts;
+  }, [handFilter]);
+
   const startPractice = useCallback(async () => {
     demoStop();
     const measuresCount = endMeasure - startMeasure;
@@ -64,7 +74,7 @@ export default function PracticeScreen({
       const xmlText = await res.text();
       setKeySignature(parseKeySignature(xmlText));
       const parsed = parseNotesFromXML(xmlText, bpm, startMeasure, endMeasure);
-      events = parsed;
+      events = filterHand(parsed);
       notes = parsed.map((n) => ({
         midiNote: n.midiNote,
         startTimeSec: n.startTimeSec,
@@ -74,13 +84,14 @@ export default function PracticeScreen({
     } catch {
       const secPerBeat = 60 / bpm;
       const beatsTotal = measuresCount * piece.timeSignature.beats;
-      notes = Array.from({ length: beatsTotal }, (_, i) => ({
+      const fallback: ActiveNote[] = Array.from({ length: beatsTotal }, (_, i) => ({
         midiNote: 60,
         startTimeSec: i * secPerBeat,
         durationSec: secPerBeat,
         isRest: false,
       }));
-      events = notes.map((n) => ({ ...n, measureIndex: 0, part: 0 }));
+      events = filterHand(fallback.map((n) => ({ ...n, measureIndex: 0, part: 0 })));
+      notes = events.map(n => ({ midiNote: n.midiNote, startTimeSec: n.startTimeSec, durationSec: n.durationSec, isRest: n.isRest }));
     }
 
     notesRef.current = notes;
@@ -92,7 +103,7 @@ export default function PracticeScreen({
       measuresCount,
       notes,
     });
-  }, [demoStop, bpm, piece, startMeasure, endMeasure, start]);
+  }, [demoStop, bpm, piece, startMeasure, endMeasure, start, filterHand]);
 
   const handleToggle = useCallback(async () => {
     if (status === "playing" || status === "countdown") {
@@ -114,7 +125,7 @@ export default function PracticeScreen({
       const res = await fetch(piece.xmlPath);
       const xmlText = await res.text();
       setKeySignature(parseKeySignature(xmlText));
-      events = parseNotesFromXML(xmlText, bpm, startMeasure, endMeasure);
+      events = filterHand(parseNotesFromXML(xmlText, bpm, startMeasure, endMeasure));
       setNoteEvents(events);
     } catch {
       return;
@@ -122,7 +133,7 @@ export default function PracticeScreen({
 
     const leadInSec = (60 / bpm) * piece.timeSignature.beats;
     demoPlay(events, leadInSec);
-  }, [demoIsPlaying, demoStop, demoPlay, piece, bpm, startMeasure, endMeasure]);
+  }, [demoIsPlaying, demoStop, demoPlay, piece, bpm, startMeasure, endMeasure, filterHand]);
 
   const handleResultAction = useCallback((retry: boolean) => {
     if (retry) {

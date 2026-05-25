@@ -12,8 +12,9 @@ interface MeasureSegmentProgress {
 interface PieceProgress {
   slug: string;
   segments: MeasureSegmentProgress[];
-  currentPhase: number; // 1=2measures, 2=4measures, 3=8measures, 4=full
+  currentPhase: number;
   unlockedSegmentIndex: number;
+  segmentSize: 2 | 4 | 8 | 16;
 }
 
 interface ScoreReadingProgress {
@@ -28,6 +29,7 @@ interface ProgressState {
   songMaster: Record<string, PieceProgress>;
   scoreReading: Record<string, ScoreReadingProgress>;
   initPieceProgress: (slug: string, totalMeasures: number) => void;
+  setSegmentSize: (slug: string, totalMeasures: number, size: 2 | 4 | 8 | 16) => void;
   updateSegment: (slug: string, segmentIndex: number, accuracy: number) => void;
   updateScoreReading: (key: string, accuracy: number, level: number, pieceSlug: string) => void;
 }
@@ -63,6 +65,24 @@ export const useProgressStore = create<ProgressState>()(
               segments: buildSegments(totalMeasures, 4),
               currentPhase: 1,
               unlockedSegmentIndex: 0,
+              segmentSize: 4,
+            },
+          },
+        }));
+      },
+
+      setSegmentSize: (slug, totalMeasures, size) => {
+        const existing = get().songMaster[slug];
+        if (existing?.segmentSize === size) return;
+        set((state) => ({
+          songMaster: {
+            ...state.songMaster,
+            [slug]: {
+              slug,
+              segments: buildSegments(totalMeasures, size),
+              currentPhase: 1,
+              unlockedSegmentIndex: 0,
+              segmentSize: size,
             },
           },
         }));

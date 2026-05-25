@@ -3,7 +3,7 @@
 import { use, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { getPieceBySlug } from "@/lib/pieces";
-import PracticeScreen from "@/components/PracticeScreen";
+import PracticeScreen, { type HandFilter } from "@/components/PracticeScreen";
 import { useProgressStore } from "@/store/progressStore";
 
 interface PageProps {
@@ -13,8 +13,9 @@ interface PageProps {
 export default function SongMasterPiecePage({ params }: PageProps) {
   const { slug } = use(params);
   const piece = getPieceBySlug(slug);
-  const { songMaster, initPieceProgress, updateSegment } = useProgressStore();
+  const { songMaster, initPieceProgress, setSegmentSize, updateSegment } = useProgressStore();
   const [practicing, setPracticing] = useState(false);
+  const [handMode, setHandMode] = useState<HandFilter>('right');
 
   useEffect(() => {
     useProgressStore.persist.rehydrate();
@@ -31,10 +32,19 @@ export default function SongMasterPiecePage({ params }: PageProps) {
   const handleResult = useCallback(
     (accuracy: number, passed: boolean) => {
       if (!progress) return;
-      updateSegment(slug, progress.unlockedSegmentIndex, accuracy);
+      if (passed) {
+        if (handMode === 'right') {
+          setHandMode('left');
+        } else if (handMode === 'left') {
+          setHandMode('both');
+        } else {
+          updateSegment(slug, progress.unlockedSegmentIndex, accuracy);
+          setHandMode('right');
+        }
+      }
       setPracticing(false);
     },
-    [slug, progress, updateSegment]
+    [slug, progress, handMode, updateSegment]
   );
 
   if (!piece) {
@@ -59,7 +69,14 @@ export default function SongMasterPiecePage({ params }: PageProps) {
   }
 
   const currentSegment = progress.segments[progress.unlockedSegmentIndex];
-  const phaseLabel = ["", "4小節", "8小節", "全曲"][progress.currentPhase] ?? "4小節";
+  const segmentSize = progress.segmentSize ?? 4;
+
+  const handleSegmentSizeChange = (size: 2 | 4 | 8 | 16) => {
+    setSegmentSize(slug, piece.totalMeasures, size);
+    setHandMode('right');
+  };
+
+  const handLabel: Record<HandFilter, string> = { right: '右手', left: '左手', both: '両手' };
 
   if (practicing && currentSegment) {
     return (
@@ -69,6 +86,7 @@ export default function SongMasterPiecePage({ params }: PageProps) {
             piece={piece}
             startMeasure={currentSegment.startMeasure}
             endMeasure={currentSegment.endMeasure}
+            handFilter={handMode}
             onResult={handleResult}
             onBack={() => setPracticing(false)}
           />
@@ -91,7 +109,7 @@ export default function SongMasterPiecePage({ params }: PageProps) {
           </div>
           <div className="ml-auto">
             <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-sm font-medium">
-              {phaseLabel} フェーズ
+              {segmentSize}小節 フェーズ
             </span>
           </div>
         </div>
@@ -113,6 +131,26 @@ export default function SongMasterPiecePage({ params }: PageProps) {
                 }%`,
               }}
             />
+          </div>
+        </div>
+
+        {/* Segment size selector */}
+        <div className="mb-5">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">1回の練習範囲</p>
+          <div className="flex gap-2">
+            {([2, 4, 8, 16] as const).map((n) => (
+              <button
+                key={n}
+                onClick={() => handleSegmentSizeChange(n)}
+                className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all
+                  ${segmentSize === n
+                    ? "bg-white ring-2 ring-purple-500 ring-offset-1 text-purple-700 shadow-md"
+                    : "bg-white/60 border border-gray-200 text-gray-500 hover:bg-white hover:shadow-sm"
+                  }`}
+              >
+                {n}小節
+              </button>
+            ))}
           </div>
         </div>
 
@@ -171,13 +209,32 @@ export default function SongMasterPiecePage({ params }: PageProps) {
           })}
         </div>
 
+        {/* Hand mode steps */}
+        {currentSegment && !currentSegment.passed && (
+          <div className="flex gap-2 mb-4">
+            {(['right', 'left', 'both'] as HandFilter[]).map((mode) => {
+              const done =
+                mode === 'right' ? handMode === 'left' || handMode === 'both'
+                : mode === 'left' ? handMode === 'both'
+                : false;
+              const active = mode === handMode;
+              return (
+                <div key={mode} className={`flex-1 py-2 rounded-xl text-sm font-bold text-center transition-all
+                  ${active ? 'bg-purple-500 text-white shadow-md' : done ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+                  {done ? '✓ ' : ''}{handLabel[mode]}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* Start button */}
         {currentSegment && !currentSegment.passed && (
           <button
             onClick={() => setPracticing(true)}
             className="w-full py-4 rounded-xl bg-purple-600 text-white font-bold text-lg hover:bg-purple-700 transition-colors shadow-md"
           >
-            第{currentSegment.startMeasure + 1}〜{currentSegment.endMeasure}小節を練習する
+            {handLabel[handMode]}で練習する（第{currentSegment.startMeasure + 1}〜{currentSegment.endMeasure}小節）
           </button>
         )}
 
