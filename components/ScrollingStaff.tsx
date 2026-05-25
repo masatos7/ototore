@@ -225,7 +225,8 @@ export default function ScrollingStaff({
 
       // ── Measure lines ─────────────────────────────────────────────────
       for (let mi = 0; mi <= totalMeasures; mi++) {
-        const x = playheadX + (mi * measureDur - elapsed) * SCROLL_SPEED;
+        const tLine = playheadX + (mi * measureDur - elapsed) * SCROLL_SPEED;
+        const x = tLine - 3;   // slightly left of notes so barline visually precedes the beat
         if (x <= clefW || x > W + 2) continue;
         const isFinal = mi === totalMeasures;
         ctx.strokeStyle = isFinal ? "#333" : "#888";
@@ -235,11 +236,11 @@ export default function ScrollingStaff({
         ctx.lineTo(x, hasBass ? bassBottomY : trebleStaffBottom);
         ctx.stroke();
         ctx.lineWidth = 1;
-        if (!isFinal && x + 4 < W) {
+        if (!isFinal && tLine + 4 < W) {
           ctx.fillStyle    = "#aaa";
           ctx.font         = "bold 10px sans-serif";
           ctx.textBaseline = "alphabetic";
-          ctx.fillText(String(startMeasure + mi + 1), x + 3, trebleStaffTop - 3);
+          ctx.fillText(String(startMeasure + mi + 1), tLine + 3, trebleStaffTop - 3);
         }
       }
 
@@ -364,6 +365,8 @@ export default function ScrollingStaff({
         ctx.beginPath();
         ctx.ellipse(nx, ny, NRX, NRY, -0.15, 0, Math.PI * 2);
         if (durBeats >= 1.75) {
+          ctx.fillStyle = "#ffffff";   // white interior so barlines don't show through open heads
+          ctx.fill();
           ctx.strokeStyle = stroke; ctx.lineWidth = 1.8;
           ctx.stroke(); ctx.lineWidth = 1;
         } else {
@@ -373,11 +376,13 @@ export default function ScrollingStaff({
 
         // ── Stem ────────────────────────────────────────────────────────
         if (durBeats < 3.8) {
-          const up = note.part === 1 ? false : step < 4; // bass notes: stem down; treble: by position
+          const up = note.part === 1 ? false : step < 4;
           const sx2 = up ? nx + NRX - 1 : nx - NRX + 1;
+          // Cap downward stems at own staff bottom so treble stems don't reach into bass staff
+          const stemFloor = note.part === 1 ? bassBottomY : trebleStaffBottom;
           const sy2 = up
             ? Math.min(ny - LINE_SPACING * 3.5, trebleStaffTop - 2)
-            : Math.max(ny + LINE_SPACING * 3.5, (hasBass ? bassBottomY : trebleStaffBottom) + 2);
+            : Math.max(ny + LINE_SPACING * 3.5, stemFloor + 2);
           ctx.strokeStyle = stroke; ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.moveTo(sx2, ny + (up ? -NRY : NRY) * 0.5);
