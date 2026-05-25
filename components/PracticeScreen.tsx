@@ -53,14 +53,8 @@ export default function PracticeScreen({
     stop,
   } = usePracticeSession();
 
-  const handleToggle = useCallback(async () => {
+  const startPractice = useCallback(async () => {
     demoStop();
-    if (status === "playing" || status === "countdown") {
-      setNoteEvents([]);
-      stop();
-      return;
-    }
-
     const measuresCount = endMeasure - startMeasure;
     let notes: ActiveNote[] = [];
     let events: NoteEvent[] = [];
@@ -98,7 +92,16 @@ export default function PracticeScreen({
       measuresCount,
       notes,
     });
-  }, [status, bpm, piece, startMeasure, endMeasure, start, stop]);
+  }, [demoStop, bpm, piece, startMeasure, endMeasure, start]);
+
+  const handleToggle = useCallback(async () => {
+    if (status === "playing" || status === "countdown") {
+      setNoteEvents([]);
+      stop();
+      return;
+    }
+    await startPractice();
+  }, [status, stop, startPractice]);
 
   const handleDemo = useCallback(async () => {
     if (demoIsPlaying) {
@@ -129,6 +132,16 @@ export default function PracticeScreen({
       onResult?.(sessionResult.accuracy, sessionResult.passed);
     }
   }, [sessionResult, onResult, stop]);
+
+  const handleDemoFromResult = useCallback(async () => {
+    stop();
+    await handleDemo();
+  }, [stop, handleDemo]);
+
+  const handleRetryFromResult = useCallback(async () => {
+    stop();
+    await startPractice();
+  }, [stop, startPractice]);
 
   const elapsedSec = demoIsPlaying ? demoElapsedSec : displayElapsedSec;
   const measuresLabel = `第${startMeasure + 1}〜${endMeasure}小節`;
@@ -162,8 +175,12 @@ export default function PracticeScreen({
       </div>
 
       {/* Scrolling staff */}
-      <div className="relative w-full rounded-xl shadow-sm border border-gray-100 overflow-hidden bg-white"
-           style={{ height: noteEvents.some(n => n.part === 1) ? "280px" : "200px" }}>
+      <div className="relative overflow-hidden bg-white"
+           style={{
+             height: noteEvents.some(n => n.part === 1) ? "280px" : "200px",
+             width: "100vw",
+             marginLeft: "calc(50% - 50vw)",
+           }}>
         <ScrollingStaff
           notes={noteEvents}
           judgements={judgements}
@@ -265,17 +282,23 @@ export default function PracticeScreen({
                 {sessionResult.correctCount} / {sessionResult.totalCount} 正解
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button
-                onClick={() => handleResultAction(true)}
-                className="flex-1 py-3 rounded-lg bg-white border border-gray-200 text-gray-700 font-medium hover:bg-gray-50"
+                onClick={handleDemoFromResult}
+                className="flex-1 py-3 rounded-lg bg-white border border-amber-200 text-amber-700 font-medium hover:bg-amber-50 text-sm"
               >
-                もう一度
+                ♪ お手本を聴く
+              </button>
+              <button
+                onClick={handleRetryFromResult}
+                className="flex-1 py-3 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 text-sm"
+              >
+                ▶ 練習スタート
               </button>
               {sessionResult.passed && (
                 <button
                   onClick={() => handleResultAction(false)}
-                  className="flex-1 py-3 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700"
+                  className="flex-1 py-3 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 text-sm"
                 >
                   次へ進む
                 </button>
