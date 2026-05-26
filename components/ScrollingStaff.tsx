@@ -553,19 +553,29 @@ export default function ScrollingStaff({
           ctx.lineWidth = 1;
 
           if (beamGi === undefined && durBeats < 0.6 && durBeats >= 0.15) {
-            // Eighth / 16th note flag (only for un-beamed notes)
-            const fl = LINE_SPACING * 1.4;
-            ctx.strokeStyle = stroke; ctx.lineWidth = 1.8;
-            ctx.beginPath();
-            if (up) {
-              ctx.moveTo(sx2, sy2);
-              ctx.bezierCurveTo(sx2 + fl, sy2 + fl * 0.1, sx2 + fl * 1.1, sy2 + fl * 0.7, sx2 + fl * 0.4, sy2 + fl * 1.2);
-            } else {
-              ctx.moveTo(sx2, sy2);
-              ctx.bezierCurveTo(sx2 + fl, sy2 - fl * 0.1, sx2 + fl * 1.1, sy2 - fl * 0.7, sx2 + fl * 0.4, sy2 - fl * 1.2);
+            // Filled flag shape — mimics Bravura glyph style
+            const fH = LINE_SPACING * 1.5;   // flag height (vertical extent)
+            const fW = LINE_SPACING * 1.15;  // flag width  (horizontal extent)
+            const numFlags = durBeats < 0.3 ? 2 : 1;
+            ctx.fillStyle = stroke;
+            for (let fi = 0; fi < numFlags; fi++) {
+              const yOff = fi * LINE_SPACING * 0.65 * (up ? 1 : -1);
+              const ty = sy2 + yOff;
+              ctx.beginPath();
+              if (up) {
+                ctx.moveTo(sx2, ty);
+                // Outer edge: sweep right then curve down to a point
+                ctx.bezierCurveTo(sx2 + fW * 1.55, ty + fH * 0.04, sx2 + fW * 1.4, ty + fH * 0.88, sx2 + fW * 0.04, ty + fH * 1.1);
+                // Inner edge: return toward stem tip
+                ctx.bezierCurveTo(sx2 + fW * 0.5, ty + fH * 0.72, sx2 + fW * 0.5, ty + fH * 0.22, sx2, ty + LINE_SPACING * 0.4);
+              } else {
+                ctx.moveTo(sx2, ty);
+                ctx.bezierCurveTo(sx2 + fW * 1.55, ty - fH * 0.04, sx2 + fW * 1.4, ty - fH * 0.88, sx2 + fW * 0.04, ty - fH * 1.1);
+                ctx.bezierCurveTo(sx2 + fW * 0.5, ty - fH * 0.72, sx2 + fW * 0.5, ty - fH * 0.22, sx2, ty - LINE_SPACING * 0.4);
+              }
+              ctx.closePath();
+              ctx.fill();
             }
-            ctx.stroke();
-            ctx.lineWidth = 1;
           }
         }
 

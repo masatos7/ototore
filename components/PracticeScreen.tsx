@@ -19,6 +19,9 @@ interface PracticeScreenProps {
   endMeasure: number;
   handFilter?: HandFilter;
   alwaysAdvance?: boolean;
+  hudScore?: number;
+  hudMisses?: number;
+  maxMisses?: number;
   onWrong?: () => void;
   onResult?: (accuracy: number, passed: boolean, wrongCount: number) => void;
   onBack?: () => void;
@@ -30,6 +33,9 @@ export default function PracticeScreen({
   endMeasure,
   handFilter = 'both',
   alwaysAdvance = false,
+  hudScore,
+  hudMisses,
+  maxMisses,
   onWrong,
   onResult,
   onBack,
@@ -109,6 +115,7 @@ export default function PracticeScreen({
       beatsPerMeasure: piece.timeSignature.beats,
       measuresCount,
       notes,
+      onMiss: () => onWrongRef.current?.(),
     });
   }, [demoStop, bpm, piece, startMeasure, endMeasure, start, filterHand]);
 
@@ -233,6 +240,23 @@ export default function PracticeScreen({
           endMeasure={endMeasure}
           keySignature={keySignature}
         />
+
+        {/* Score/miss HUD — right edge aligned with max-w-3xl px-4 container */}
+        {hudScore !== undefined && hudMisses !== undefined && (
+          <div
+            className="absolute top-2 z-10 flex items-center gap-3"
+            style={{ right: "calc(max(0px, (100vw - 48rem) / 2) + 1rem)" }}
+          >
+            <span className="text-sm font-black text-gray-700">
+              スコア <span className="text-base">{hudScore}</span>
+            </span>
+            <span className="text-gray-300">|</span>
+            <span className="text-sm font-black text-gray-700">
+              ミス <span className="text-base">{hudMisses}</span>
+              <span className="text-xs font-bold text-gray-400">/{maxMisses}</span>
+            </span>
+          </div>
+        )}
 
         {/* Lead-in countdown overlay */}
         {status === "countdown" && countdown > 0 && (

@@ -20,6 +20,7 @@ interface PracticeSessionOptions {
   beatsPerMeasure: number;
   measuresCount: number;
   notes: ActiveNote[];
+  onMiss?: () => void;
 }
 
 export function usePracticeSession() {
@@ -38,6 +39,7 @@ export function usePracticeSession() {
   const startIdRef = useRef(0);
   const countdownHandlesRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const pitchGatedRef = useRef(false);
+  const missIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { start: startPitch, stop: stopPitch, isListening, error: micError } = usePitchDetection();
   const { start: startMetronome, stop: stopMetronome } = useMetronome();
@@ -76,6 +78,10 @@ export function usePracticeSession() {
     startIdRef.current++;
     countdownHandlesRef.current.forEach(clearTimeout);
     countdownHandlesRef.current = [];
+    if (missIntervalRef.current) {
+      clearInterval(missIntervalRef.current);
+      missIntervalRef.current = null;
+    }
     stopMetronome();
     stopPitch();
     sessionStartTimeRef.current = 0;
@@ -141,6 +147,21 @@ export function usePracticeSession() {
           onPracticeStart: () => {
             if (isStale()) return;
             sessionStartTimeRef.current = Date.now();
+            // Detect missed notes in real-time (50ms polling)
+            missIntervalRef.current = setInterval(() => {
+              if (!sessionStartTimeRef.current || isStale()) return;
+              const now = (Date.now() - sessionStartTimeRef.current) / 1000;
+              let anyNew = false;
+              for (let i = 0; i < notesRef.current.length; i++) {
+                if (judgementsRef.current[i]?.judgement !== "pending") continue;
+                if (now > notesRef.current[i].startTimeSec + TIMING_WINDOW_SEC) {
+                  judgementsRef.current[i] = { noteIndex: i, judgement: "missed" };
+                  opts.onMiss?.();
+                  anyNew = true;
+                }
+              }
+              if (anyNew) setJudgements([...judgementsRef.current]);
+            }, 50);
           },
           onDisplayElapsed: (sec) => {
             // sec is negative during lead-in (notes off-screen right), 0+ during practice
@@ -151,10 +172,18 @@ export function usePracticeSession() {
             setTimeout(() => { pitchGatedRef.current = false; }, 100);
           },
           onComplete: () => {
+            if (missIntervalRef.current) {
+              clearInterval(missIntervalRef.current);
+              missIntervalRef.current = null;
+            }
             stopPitch();
-            const finalJudgements = judgementsRef.current.map((j) =>
-              j.judgement === "pending" ? { ...j, judgement: "missed" as const } : j
-            );
+            const finalJudgements = judgementsRef.current.map((j) => {
+              if (j.judgement === "pending") {
+                opts.onMiss?.();
+                return { ...j, judgement: "missed" as const };
+              }
+              return j;
+            });
             judgementsRef.current = finalJudgements;
             setJudgements(finalJudgements);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import { PIECES } from "@/lib/pieces";
 import PracticeScreen, { type HandFilter } from "@/components/PracticeScreen";
@@ -14,13 +14,14 @@ type SessionState =
   | { phase: "idle" }
   | { phase: "playing"; pieceIndex: number; measureOffset: number; score: number; misses: number }
   | { phase: "transition"; message: string; nextPieceIndex: number; score: number; misses: number }
-  | { phase: "gameover"; score: number }
   | { phase: "complete"; score: number };
 
 export default function ScoreReadingPage() {
   const [hand, setHand] = useState<HandFilter>("right");
   const [startPieceSlug, setStartPieceSlug] = useState(ORDERED_PIECES[0].slug);
   const [session, setSession] = useState<SessionState>({ phase: "idle" });
+  const [gameOverVisible, setGameOverVisible] = useState(false);
+  const gameOverRef = useRef(false);
 
   // Auto-advance from transition screen
   useEffect(() => {
@@ -38,6 +39,8 @@ export default function ScoreReadingPage() {
   }, [session]);
 
   const handleStart = useCallback(() => {
+    gameOverRef.current = false;
+    setGameOverVisible(false);
     const startIdx = ORDERED_PIECES.findIndex((p) => p.slug === startPieceSlug);
     setSession({
       phase: "playing",
@@ -48,20 +51,24 @@ export default function ScoreReadingPage() {
     });
   }, [startPieceSlug]);
 
-  // Real-time miss increment (fires on each wrong note)
+  // Real-time miss increment — shows overlay at 10 misses
   const handleWrong = useCallback(() => {
+    if (gameOverRef.current) return;
     setSession((prev) => {
       if (prev.phase !== "playing") return prev;
       const newMisses = prev.misses + 1;
       if (newMisses >= MAX_MISSES) {
-        return { phase: "gameover", score: prev.score };
+        gameOverRef.current = true;
+        setGameOverVisible(true);
+        return { ...prev, misses: newMisses };
       }
       return { ...prev, misses: newMisses };
     });
   }, []);
 
-  // Segment end: advance score and move to next segment/piece (misses already counted via handleWrong)
+  // Segment end: advance score and move to next segment/piece
   const handleResult = useCallback((_accuracy: number, _passed: boolean, _wrongCount: number) => {
+    if (gameOverRef.current) return;
     setSession((prev) => {
       if (prev.phase !== "playing") return prev;
 
@@ -105,25 +112,6 @@ export default function ScoreReadingPage() {
     );
   }
 
-  // ---- Game over ----
-  if (session.phase === "gameover") {
-    return (
-      <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center">
-        <div className="text-center px-4">
-          <div className="text-6xl font-black text-red-500 mb-4">ゲームオーバー</div>
-          <div className="text-3xl font-bold text-gray-700 mb-1">スコア: {session.score}</div>
-          <div className="text-sm text-gray-500 mb-8">10回ミスに達しました</div>
-          <button
-            onClick={() => setSession({ phase: "idle" })}
-            className="px-8 py-3 rounded-xl bg-indigo-500 text-white font-bold hover:bg-indigo-600 shadow-md"
-          >
-            もう一度挑戦
-          </button>
-        </div>
-      </main>
-    );
-  }
-
   // ---- Complete ----
   if (session.phase === "complete") {
     return (
@@ -133,7 +121,7 @@ export default function ScoreReadingPage() {
           <div className="text-3xl font-bold text-gray-700 mb-1">スコア: {session.score}</div>
           <div className="text-sm text-gray-500 mb-8">全曲クリアおめでとうございます!</div>
           <button
-            onClick={() => setSession({ phase: "idle" })}
+            onClick={handleStart}
             className="px-8 py-3 rounded-xl bg-indigo-500 text-white font-bold hover:bg-indigo-600 shadow-md"
           >
             もう一度挑戦
@@ -151,24 +139,7 @@ export default function ScoreReadingPage() {
 
     return (
       <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50">
-        <div className="max-w-3xl mx-auto px-4 py-8 relative">
-          {/* Score/miss badge — top-right of the frame */}
-          <div className="absolute top-4 right-4 z-10 bg-white border border-gray-100 rounded-xl shadow-sm px-4 py-2 flex items-center gap-4">
-            <div className="text-center">
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">スコア</div>
-              <div className="text-xl font-black text-indigo-600 leading-none">
-                {score}<span className="text-xs font-bold text-gray-400 ml-0.5">小節</span>
-              </div>
-            </div>
-            <div className="w-px h-8 bg-gray-100" />
-            <div className="text-center">
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">ミス</div>
-              <div className="text-xl font-black text-red-500 leading-none">
-                {misses}<span className="text-sm font-bold text-gray-400">/{MAX_MISSES}</span>
-              </div>
-            </div>
-          </div>
-
+        <div className="max-w-3xl mx-auto px-4 py-8">
           <PracticeScreen
             key={`${pieceIndex}-${measureOffset}`}
             piece={currentPiece}
@@ -176,11 +147,57 @@ export default function ScoreReadingPage() {
             endMeasure={endMeasure}
             handFilter={hand}
             alwaysAdvance={true}
+            hudScore={score}
+            hudMisses={misses}
+            maxMisses={MAX_MISSES}
             onWrong={handleWrong}
-            onResult={handleResult}
-            onBack={() => setSession({ phase: "idle" })}
+            onResult={gameOverVisible ? undefined : handleResult}
+            onBack={() => {
+              gameOverRef.current = false;
+              setGameOverVisible(false);
+              setSession({ phase: "idle" });
+            }}
           />
         </div>
+
+        {/* Game over overlay */}
+        {gameOverVisible && (
+          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/40 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl p-8 w-full max-w-sm mx-4 text-center">
+              <div className="text-2xl font-bold text-gray-700 mb-1">スコア: {score}</div>
+              <div className="text-sm text-gray-500 mb-8">10回ミスに達しました</div>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => {
+                    gameOverRef.current = false;
+                    setGameOverVisible(false);
+                    setSession({ phase: "idle" });
+                  }}
+                  className="px-6 py-3 rounded-xl bg-white border border-gray-200 text-gray-600 font-bold hover:bg-gray-50"
+                >
+                  やめる
+                </button>
+                <button
+                  onClick={() => {
+                    gameOverRef.current = false;
+                    setGameOverVisible(false);
+                    const startIdx = ORDERED_PIECES.findIndex((p) => p.slug === startPieceSlug);
+                    setSession({
+                      phase: "playing",
+                      pieceIndex: startIdx >= 0 ? startIdx : 0,
+                      measureOffset: 0,
+                      score: 0,
+                      misses: 0,
+                    });
+                  }}
+                  className="px-6 py-3 rounded-xl bg-indigo-500 text-white font-bold hover:bg-indigo-600"
+                >
+                  もう一度挑戦
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     );
   }
@@ -198,6 +215,15 @@ export default function ScoreReadingPage() {
             <p className="text-sm text-gray-500">曲と手を選んでスタート</p>
           </div>
         </div>
+
+        {/* Start button */}
+        <button
+          onClick={handleStart}
+          className="w-full py-4 rounded-2xl bg-indigo-500 hover:bg-indigo-600 active:bg-indigo-700
+            text-white font-black text-lg shadow-md transition-all mb-8"
+        >
+          ▶ 練習スタート
+        </button>
 
         {/* Hand selector */}
         <section className="mb-6">
@@ -259,15 +285,6 @@ export default function ScoreReadingPage() {
             })}
           </div>
         </section>
-
-        {/* Start button */}
-        <button
-          onClick={handleStart}
-          className="w-full py-4 rounded-2xl bg-indigo-500 hover:bg-indigo-600 active:bg-indigo-700
-            text-white font-black text-lg shadow-md transition-all"
-        >
-          ▶ 練習スタート
-        </button>
 
       </div>
     </main>
