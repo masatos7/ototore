@@ -78,7 +78,7 @@ export function usePracticeSession() {
         setLastJudgement(result);
         setTimeout(() => setLastJudgement(null), 400);
         judgementCooldownRef.current = true;
-        setTimeout(() => { judgementCooldownRef.current = false; }, 200);
+        setTimeout(() => { judgementCooldownRef.current = false; }, 50);
         break;
       }
     }
