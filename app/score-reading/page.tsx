@@ -22,6 +22,7 @@ export default function ScoreReadingPage() {
   const [session, setSession] = useState<SessionState>({ phase: "idle" });
   const [gameOverVisible, setGameOverVisible] = useState(false);
   const gameOverRef = useRef(false);
+  const [sessionKey, setSessionKey] = useState(0);
 
   // Auto-advance from transition screen
   useEffect(() => {
@@ -41,6 +42,7 @@ export default function ScoreReadingPage() {
   const handleStart = useCallback(() => {
     gameOverRef.current = false;
     setGameOverVisible(false);
+    setSessionKey((k) => k + 1);
     const startIdx = ORDERED_PIECES.findIndex((p) => p.slug === startPieceSlug);
     setSession({
       phase: "playing",
@@ -50,6 +52,24 @@ export default function ScoreReadingPage() {
       misses: 0,
     });
   }, [startPieceSlug]);
+
+  const handleSessionStart = useCallback(() => {
+    gameOverRef.current = false;
+    setGameOverVisible(false);
+    setSessionKey((k) => k + 1);
+    setSession((prev) =>
+      prev.phase === "playing" ? { ...prev, score: 0, misses: 0 } : prev
+    );
+  }, []);
+
+  // Real-time correct note increment
+  const handleCorrect = useCallback(() => {
+    if (gameOverRef.current) return;
+    setSession((prev) => {
+      if (prev.phase !== "playing") return prev;
+      return { ...prev, score: prev.score + 1 };
+    });
+  }, []);
 
   // Real-time miss increment — shows overlay at 10 misses
   const handleWrong = useCallback(() => {
@@ -66,7 +86,7 @@ export default function ScoreReadingPage() {
     });
   }, []);
 
-  // Segment end: advance score and move to next segment/piece
+  // Segment end: advance to next segment/piece (score already updated in real-time via handleCorrect)
   const handleResult = useCallback((_accuracy: number, _passed: boolean, _wrongCount: number) => {
     if (gameOverRef.current) return;
     setSession((prev) => {
@@ -74,23 +94,21 @@ export default function ScoreReadingPage() {
 
       const currentPiece = ORDERED_PIECES[prev.pieceIndex];
       const nextMeasure = prev.measureOffset + SEGMENT_SIZE;
-      const segmentMeasures = Math.min(SEGMENT_SIZE, currentPiece.totalMeasures - prev.measureOffset);
-      const newScore = prev.score + segmentMeasures;
 
       if (nextMeasure >= currentPiece.totalMeasures) {
         const nextIdx = prev.pieceIndex + 1;
         if (nextIdx >= ORDERED_PIECES.length) {
-          return { phase: "complete", score: newScore };
+          return { phase: "complete", score: prev.score };
         }
         const nextPiece = ORDERED_PIECES[nextIdx];
         const levelUp = nextPiece.difficulty > currentPiece.difficulty;
         const message = levelUp
           ? `レベルアップ！ 次の曲: ${nextPiece.title}`
           : `次の曲: ${nextPiece.title}`;
-        return { phase: "transition", message, nextPieceIndex: nextIdx, score: newScore, misses: prev.misses };
+        return { phase: "transition", message, nextPieceIndex: nextIdx, score: prev.score, misses: prev.misses };
       }
 
-      return { ...prev, measureOffset: nextMeasure, score: newScore };
+      return { ...prev, measureOffset: nextMeasure };
     });
   }, []);
 
@@ -141,7 +159,7 @@ export default function ScoreReadingPage() {
       <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50">
         <div className="max-w-3xl mx-auto px-4 py-8">
           <PracticeScreen
-            key={`${pieceIndex}-${measureOffset}`}
+            key={`${sessionKey}-${pieceIndex}-${measureOffset}`}
             piece={currentPiece}
             startMeasure={measureOffset}
             endMeasure={endMeasure}
@@ -151,6 +169,8 @@ export default function ScoreReadingPage() {
             hudMisses={misses}
             maxMisses={MAX_MISSES}
             onWrong={handleWrong}
+            onCorrect={handleCorrect}
+            onStart={handleSessionStart}
             onResult={gameOverVisible ? undefined : handleResult}
             onBack={() => {
               gameOverRef.current = false;
@@ -181,6 +201,7 @@ export default function ScoreReadingPage() {
                   onClick={() => {
                     gameOverRef.current = false;
                     setGameOverVisible(false);
+                    setSessionKey((k) => k + 1);
                     const startIdx = ORDERED_PIECES.findIndex((p) => p.slug === startPieceSlug);
                     setSession({
                       phase: "playing",

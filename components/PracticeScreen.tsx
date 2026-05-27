@@ -23,6 +23,8 @@ interface PracticeScreenProps {
   hudMisses?: number;
   maxMisses?: number;
   onWrong?: () => void;
+  onCorrect?: () => void;
+  onStart?: () => void;
   onResult?: (accuracy: number, passed: boolean, wrongCount: number) => void;
   onBack?: () => void;
 }
@@ -37,6 +39,8 @@ export default function PracticeScreen({
   hudMisses,
   maxMisses,
   onWrong,
+  onCorrect,
+  onStart,
   onResult,
   onBack,
 }: PracticeScreenProps) {
@@ -119,14 +123,20 @@ export default function PracticeScreen({
     });
   }, [demoStop, bpm, piece, startMeasure, endMeasure, start, filterHand]);
 
+  const onStartRef = useRef(onStart);
+  useEffect(() => { onStartRef.current = onStart; });
+
   const handleToggle = useCallback(async () => {
     if (status === "playing" || status === "countdown") {
       setNoteEvents([]);
       stop();
       return;
     }
-    await startPractice();
-  }, [status, stop, startPractice]);
+    onStartRef.current?.();
+    if (!alwaysAdvance) {
+      await startPractice();
+    }
+  }, [status, stop, startPractice, alwaysAdvance]);
 
   const handleDemo = useCallback(async () => {
     if (demoIsPlaying) {
@@ -149,11 +159,16 @@ export default function PracticeScreen({
     demoPlay(events, leadInSec);
   }, [demoIsPlaying, demoStop, demoPlay, piece, bpm, startMeasure, endMeasure, filterHand]);
 
-  // Fire onWrong in real-time whenever a wrong note is judged
   const onWrongRef = useRef(onWrong);
   useEffect(() => { onWrongRef.current = onWrong; });
   useEffect(() => {
     if (lastJudgement === "wrong") onWrongRef.current?.();
+  }, [lastJudgement]);
+
+  const onCorrectRef = useRef(onCorrect);
+  useEffect(() => { onCorrectRef.current = onCorrect; });
+  useEffect(() => {
+    if (lastJudgement === "correct") onCorrectRef.current?.();
   }, [lastJudgement]);
 
   const handleResultAction = useCallback((retry: boolean) => {
