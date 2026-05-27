@@ -123,7 +123,7 @@ export function usePracticeSession() {
     // Start mic immediately so it's ready
     await startPitch({
       onPitch: ({ midiNote }) => handlePitch(midiNote),
-      clarityThreshold: 0.92,
+      clarityThreshold: 0.88,
       amplitudeThreshold: 0.015,
     });
     if (isStale()) return;

@@ -66,7 +66,7 @@ export function usePitchDetection() {
       contextRef.current = ctx;
 
       const analyser = ctx.createAnalyser();
-      analyser.fftSize = 2048;
+      analyser.fftSize = 4096;
       analyserRef.current = analyser;
 
       const source = ctx.createMediaStreamSource(stream);
