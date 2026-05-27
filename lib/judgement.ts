@@ -40,7 +40,7 @@ export function judgeNote(
 
   if (timeDiff > TIMING_WINDOW_SEC) return "pending";
 
-  if (notesMatchPitchClass(detectedMidi, activeNote.midiNote)) {
+  if (notesMatchPitchClass(detectedMidi, activeNote.midiNote) && Math.abs(detectedMidi - activeNote.midiNote) <= 12) {
     return "correct";
   }
 
