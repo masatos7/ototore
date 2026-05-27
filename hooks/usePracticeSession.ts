@@ -40,7 +40,6 @@ export function usePracticeSession() {
   const startIdRef = useRef(0);
   const countdownHandlesRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const pitchGatedRef = useRef(false);
-  const judgementCooldownRef = useRef(false);
   const missIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { start: startPitch, stop: stopPitch, isListening, error: micError } = usePitchDetection();
@@ -49,7 +48,6 @@ export function usePracticeSession() {
   const handlePitch = useCallback((midi: number) => {
     if (!sessionStartTimeRef.current) return;
     if (pitchGatedRef.current) return;
-    if (judgementCooldownRef.current) return;
     const currentTimeSec = (Date.now() - sessionStartTimeRef.current) / 1000;
 
     for (let i = 0; i < notesRef.current.length; i++) {
@@ -61,24 +59,14 @@ export function usePracticeSession() {
       if (note.startTimeSec - currentTimeSec > TIMING_WINDOW_SEC) break;
 
       const result = judgeNote(note, midi, currentTimeSec);
-      if (result === "correct" || result === "wrong") {
-        const newJudgement: JudgementResult = {
-          noteIndex: i,
-          judgement: result,
-          detectedMidi: midi,
-          detectedTimeSec: currentTimeSec,
-        };
-        judgementsRef.current[i] = newJudgement;
+      if (result === "correct") {
+        const timeDiff = Math.abs(currentTimeSec - note.startTimeSec);
+        const pts = computeNoteScore(timeDiff);
+        judgementsRef.current[i] = { noteIndex: i, judgement: "correct", detectedMidi: midi, detectedTimeSec: currentTimeSec };
         setJudgements([...judgementsRef.current]);
-        if (result === "correct") {
-          const timeDiff = Math.abs(currentTimeSec - note.startTimeSec);
-          const pts = computeNoteScore(timeDiff);
-          setLastScore(pts);
-        }
-        setLastJudgement(result);
+        setLastScore(pts);
+        setLastJudgement("correct");
         setTimeout(() => setLastJudgement(null), 400);
-        judgementCooldownRef.current = true;
-        setTimeout(() => { judgementCooldownRef.current = false; }, 50);
         break;
       }
     }

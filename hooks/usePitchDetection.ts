@@ -81,12 +81,6 @@ export function usePitchDetection() {
 
       setIsListening(true);
 
-      // Onset detection state: fast follower rises quickly, slow follower tracks sustained level.
-      // A new note is detected only when fast >> slow (amplitude spike = key press).
-      let fastRms = 0;
-      let slowRms = 0;
-      let lastOnsetMs = 0;
-
       const detect = () => {
         if (!analyserRef.current || !bufferRef.current) return;
         analyserRef.current.getFloatTimeDomainData(bufferRef.current);
@@ -96,25 +90,10 @@ export function usePitchDetection() {
           sum += bufferRef.current[i] * bufferRef.current[i];
         }
         const rms = Math.sqrt(sum / bufferRef.current.length);
-
-        // Keep envelope followers updated even during silence so slow follower decays properly
-        fastRms = fastRms * 0.3 + rms * 0.7;
-        // Asymmetric follower: rises slowly (ignores brief spikes), falls quickly (catches inter-note dips)
-        const slowAlpha = rms > slowRms ? 0.1 : 0.5;
-        slowRms = slowRms * (1 - slowAlpha) + rms * slowAlpha;
-
-        // Onset: amplitude spike (fast >> slow) above noise floor, with min gap between onsets
-        const now = performance.now();
-        const isOnset = rms >= amplitudeThreshold
-          && fastRms > slowRms * 1.4
-          && now - lastOnsetMs > 80;
-
-        if (!isOnset) {
+        if (rms < amplitudeThreshold) {
           rafRef.current = requestAnimationFrame(detect);
           return;
         }
-
-        lastOnsetMs = now;
 
         const [frequency, clarity] = detector.findPitch(
           bufferRef.current,
