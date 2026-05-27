@@ -66,7 +66,7 @@ export function usePitchDetection() {
       contextRef.current = ctx;
 
       const analyser = ctx.createAnalyser();
-      analyser.fftSize = 4096;
+      analyser.fftSize = 2048;
       analyserRef.current = analyser;
 
       const source = ctx.createMediaStreamSource(stream);
@@ -99,12 +99,14 @@ export function usePitchDetection() {
 
         // Keep envelope followers updated even during silence so slow follower decays properly
         fastRms = fastRms * 0.3 + rms * 0.7;
-        slowRms = slowRms * 0.9 + rms * 0.1;
+        // Asymmetric follower: rises slowly (ignores brief spikes), falls quickly (catches inter-note dips)
+        const slowAlpha = rms > slowRms ? 0.1 : 0.5;
+        slowRms = slowRms * (1 - slowAlpha) + rms * slowAlpha;
 
         // Onset: amplitude spike (fast >> slow) above noise floor, with min gap between onsets
         const now = performance.now();
         const isOnset = rms >= amplitudeThreshold
-          && fastRms > slowRms * 1.5
+          && fastRms > slowRms * 1.4
           && now - lastOnsetMs > 80;
 
         if (!isOnset) {
