@@ -40,6 +40,7 @@ export function usePracticeSession() {
   const startIdRef = useRef(0);
   const countdownHandlesRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const pitchGatedRef = useRef(false);
+  const judgementCooldownRef = useRef(false);
   const missIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { start: startPitch, stop: stopPitch, isListening, error: micError } = usePitchDetection();
@@ -48,6 +49,7 @@ export function usePracticeSession() {
   const handlePitch = useCallback((midi: number) => {
     if (!sessionStartTimeRef.current) return;
     if (pitchGatedRef.current) return;
+    if (judgementCooldownRef.current) return;
     const currentTimeSec = (Date.now() - sessionStartTimeRef.current) / 1000;
 
     for (let i = 0; i < notesRef.current.length; i++) {
@@ -75,6 +77,8 @@ export function usePracticeSession() {
         }
         setLastJudgement(result);
         setTimeout(() => setLastJudgement(null), 400);
+        judgementCooldownRef.current = true;
+        setTimeout(() => { judgementCooldownRef.current = false; }, 200);
         break;
       }
     }
