@@ -175,7 +175,7 @@ export function usePracticeSession() {
           },
           onBeat: () => {
             pitchGatedRef.current = true;
-            setTimeout(() => { pitchGatedRef.current = false; }, 100);
+            setTimeout(() => { pitchGatedRef.current = false; }, 50);
           },
           onComplete: () => {
             if (missIntervalRef.current) {
