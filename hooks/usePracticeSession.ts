@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { usePitchDetection } from "./usePitchDetection";
 import { useMetronome } from "./useMetronome";
 import { judgeNote, calculateAccuracy, TIMING_WINDOW_SEC, type JudgementResult, type ActiveNote } from "@/lib/judgement";
@@ -201,6 +201,18 @@ export function usePracticeSession() {
     }, 2000);
     countdownHandlesRef.current.push(h2);
   }, [startPitch, startMetronome, stopPitch, handlePitch]);
+
+  // Clean up on unmount so stale intervals/timeouts can't fire callbacks
+  useEffect(() => {
+    return () => {
+      startIdRef.current++;
+      countdownHandlesRef.current.forEach(clearTimeout);
+      if (missIntervalRef.current) {
+        clearInterval(missIntervalRef.current);
+        missIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   return {
     status,

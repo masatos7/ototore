@@ -165,6 +165,7 @@ export default function ScoreReadingPage() {
             endMeasure={endMeasure}
             handFilter={hand}
             alwaysAdvance={true}
+            paused={gameOverVisible}
             hudScore={score}
             hudMisses={misses}
             maxMisses={MAX_MISSES}

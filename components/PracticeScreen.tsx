@@ -19,6 +19,7 @@ interface PracticeScreenProps {
   endMeasure: number;
   handFilter?: HandFilter;
   alwaysAdvance?: boolean;
+  paused?: boolean;
   hudScore?: number;
   hudMisses?: number;
   maxMisses?: number;
@@ -35,6 +36,7 @@ export default function PracticeScreen({
   endMeasure,
   handFilter = 'both',
   alwaysAdvance = false,
+  paused = false,
   hudScore,
   hudMisses,
   maxMisses,
@@ -122,6 +124,10 @@ export default function PracticeScreen({
       onMiss: () => onWrongRef.current?.(),
     });
   }, [demoStop, bpm, piece, startMeasure, endMeasure, start, filterHand]);
+
+  useEffect(() => {
+    if (paused) stop();
+  }, [paused, stop]);
 
   const onStartRef = useRef(onStart);
   useEffect(() => { onStartRef.current = onStart; });
