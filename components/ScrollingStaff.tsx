@@ -664,8 +664,8 @@ export default function ScrollingStaff({
       ctx.strokeStyle = "rgba(99,102,241,0.9)";
       ctx.lineWidth   = 2;
       ctx.beginPath();
-      ctx.moveTo(playheadX, trebleStaffTop - 10);
-      ctx.lineTo(playheadX, (hasBass ? bassBottomY : trebleStaffBottom) + 10);
+      ctx.moveTo(playheadX, 0);
+      ctx.lineTo(playheadX, H);
       ctx.stroke();
 
       ctx.fillStyle = "#6366f1";

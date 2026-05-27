@@ -9,6 +9,7 @@ import { useDemoPlayback } from "@/hooks/useDemoPlayback";
 import { parseNotesFromXML, parseKeySignature } from "@/lib/osmdUtils";
 import type { NoteEvent } from "@/lib/osmdUtils";
 import type { Piece } from "@/lib/pieces";
+import { calculateAccuracy } from "@/lib/judgement";
 import type { ActiveNote } from "@/lib/judgement";
 
 export type HandFilter = 'right' | 'left' | 'both';
@@ -21,8 +22,6 @@ interface PracticeScreenProps {
   alwaysAdvance?: boolean;
   paused?: boolean;
   hudScore?: number;
-  hudMisses?: number;
-  maxMisses?: number;
   onWrong?: () => void;
   onCorrect?: (points: number) => void;
   onStart?: () => void;
@@ -38,8 +37,6 @@ export default function PracticeScreen({
   alwaysAdvance = false,
   paused = false,
   hudScore,
-  hudMisses,
-  maxMisses,
   onWrong,
   onCorrect,
   onStart,
@@ -216,6 +213,9 @@ export default function PracticeScreen({
   const elapsedSec = demoIsPlaying ? demoElapsedSec : displayElapsedSec;
   const measuresLabel = `第${startMeasure + 1}〜${endMeasure}小節`;
 
+  const liveAccuracy = calculateAccuracy(judgements);
+  const hasJudged = judgements.some(j => j.judgement !== "pending");
+
   return (
     <div className="flex flex-col gap-4 w-full max-w-3xl mx-auto">
       {/* Header */}
@@ -263,19 +263,25 @@ export default function PracticeScreen({
           keySignature={keySignature}
         />
 
-        {/* Score/miss HUD — right edge aligned with max-w-3xl px-4 container */}
-        {hudScore !== undefined && hudMisses !== undefined && (
+        {/* Accuracy (+ optional score) HUD — right edge aligned with max-w-3xl px-4 container */}
+        {status === "playing" && (
           <div
             className="absolute top-2 z-10 flex items-center gap-3"
             style={{ right: "calc(max(0px, (100vw - 48rem) / 2) + 1rem)" }}
           >
-            <span className="text-sm font-black text-gray-700">
-              スコア <span className="text-base">{hudScore}</span>
-            </span>
-            <span className="text-gray-300">|</span>
-            <span className="text-sm font-black text-gray-700">
-              ミス <span className="text-base">{hudMisses}</span>
-              <span className="text-xs font-bold text-gray-400">/{maxMisses}</span>
+            {hudScore !== undefined && (
+              <>
+                <span className="text-sm font-black text-gray-700">
+                  スコア <span className="text-base">{hudScore}</span>
+                </span>
+                <span className="text-gray-300">|</span>
+              </>
+            )}
+            <span
+              className="text-sm font-black"
+              style={{ color: !hasJudged || liveAccuracy >= 90 ? "#111" : "#dc2626" }}
+            >
+              精度 {hasJudged ? Math.round(liveAccuracy) : "—"}%
             </span>
           </div>
         )}
@@ -381,7 +387,7 @@ export default function PracticeScreen({
                   onClick={handleRetryFromResult}
                   className="flex-1 py-3 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 text-sm"
                 >
-                  ▶ 練習スタート
+                  ▶ もう一度挑戦
                 </button>
                 {sessionResult.passed && (
                   <button

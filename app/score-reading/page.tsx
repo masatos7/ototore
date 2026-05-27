@@ -1,27 +1,24 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { PIECES } from "@/lib/pieces";
 import PracticeScreen, { type HandFilter } from "@/components/PracticeScreen";
 
 const SEGMENT_SIZE = 4;
-const MAX_MISSES = 10;
 
 const ORDERED_PIECES = [...PIECES].sort((a, b) => a.difficulty - b.difficulty);
 
 type SessionState =
   | { phase: "idle" }
-  | { phase: "playing"; pieceIndex: number; measureOffset: number; score: number; misses: number }
-  | { phase: "transition"; message: string; nextPieceIndex: number; score: number; misses: number }
+  | { phase: "playing"; pieceIndex: number; measureOffset: number; score: number }
+  | { phase: "transition"; message: string; nextPieceIndex: number; score: number }
   | { phase: "complete"; score: number };
 
 export default function ScoreReadingPage() {
   const [hand, setHand] = useState<HandFilter>("right");
   const [startPieceSlug, setStartPieceSlug] = useState(ORDERED_PIECES[0].slug);
   const [session, setSession] = useState<SessionState>({ phase: "idle" });
-  const [gameOverVisible, setGameOverVisible] = useState(false);
-  const gameOverRef = useRef(false);
   const [sessionKey, setSessionKey] = useState(0);
 
   // Auto-advance from transition screen
@@ -33,15 +30,12 @@ export default function ScoreReadingPage() {
         pieceIndex: session.nextPieceIndex,
         measureOffset: 0,
         score: session.score,
-        misses: session.misses,
       });
     }, 2500);
     return () => clearTimeout(timer);
   }, [session]);
 
   const handleStart = useCallback(() => {
-    gameOverRef.current = false;
-    setGameOverVisible(false);
     setSessionKey((k) => k + 1);
     const startIdx = ORDERED_PIECES.findIndex((p) => p.slug === startPieceSlug);
     setSession({
@@ -49,46 +43,19 @@ export default function ScoreReadingPage() {
       pieceIndex: startIdx >= 0 ? startIdx : 0,
       measureOffset: 0,
       score: 0,
-      misses: 0,
     });
   }, [startPieceSlug]);
 
-  const handleSessionStart = useCallback(() => {
-    gameOverRef.current = false;
-    setGameOverVisible(false);
-    setSessionKey((k) => k + 1);
-    setSession((prev) =>
-      prev.phase === "playing" ? { ...prev, score: 0, misses: 0 } : prev
-    );
-  }, []);
-
   // Real-time correct note increment
   const handleCorrect = useCallback((points: number) => {
-    if (gameOverRef.current) return;
     setSession((prev) => {
       if (prev.phase !== "playing") return prev;
       return { ...prev, score: prev.score + points };
     });
   }, []);
 
-  // Real-time miss increment — shows overlay at 10 misses
-  const handleWrong = useCallback(() => {
-    if (gameOverRef.current) return;
-    setSession((prev) => {
-      if (prev.phase !== "playing") return prev;
-      const newMisses = prev.misses + 1;
-      if (newMisses >= MAX_MISSES) {
-        gameOverRef.current = true;
-        setGameOverVisible(true);
-        return { ...prev, misses: newMisses };
-      }
-      return { ...prev, misses: newMisses };
-    });
-  }, []);
-
-  // Segment end: advance to next segment/piece (score already updated in real-time via handleCorrect)
+  // Called when user presses "次へ進む" (accuracy >= 90% only)
   const handleResult = useCallback((_accuracy: number, _passed: boolean, _wrongCount: number) => {
-    if (gameOverRef.current) return;
     setSession((prev) => {
       if (prev.phase !== "playing") return prev;
 
@@ -105,7 +72,7 @@ export default function ScoreReadingPage() {
         const message = levelUp
           ? `レベルアップ！ 次の曲: ${nextPiece.title}`
           : `次の曲: ${nextPiece.title}`;
-        return { phase: "transition", message, nextPieceIndex: nextIdx, score: prev.score, misses: prev.misses };
+        return { phase: "transition", message, nextPieceIndex: nextIdx, score: prev.score };
       }
 
       return { ...prev, measureOffset: nextMeasure };
@@ -151,7 +118,7 @@ export default function ScoreReadingPage() {
 
   // ---- Playing ----
   if (session.phase === "playing") {
-    const { pieceIndex, measureOffset, score, misses } = session;
+    const { pieceIndex, measureOffset } = session;
     const currentPiece = ORDERED_PIECES[pieceIndex];
     const endMeasure = Math.min(measureOffset + SEGMENT_SIZE, currentPiece.totalMeasures);
 
@@ -164,62 +131,12 @@ export default function ScoreReadingPage() {
             startMeasure={measureOffset}
             endMeasure={endMeasure}
             handFilter={hand}
-            alwaysAdvance={true}
-            paused={gameOverVisible}
-            hudScore={score}
-            hudMisses={misses}
-            maxMisses={MAX_MISSES}
-            onWrong={handleWrong}
+            hudScore={session.score}
             onCorrect={handleCorrect}
-            onStart={handleSessionStart}
-            onResult={gameOverVisible ? undefined : handleResult}
-            onBack={() => {
-              gameOverRef.current = false;
-              setGameOverVisible(false);
-              setSession({ phase: "idle" });
-            }}
+            onResult={handleResult}
+            onBack={() => setSession({ phase: "idle" })}
           />
         </div>
-
-        {/* Game over overlay */}
-        {gameOverVisible && (
-          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/40 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl p-8 w-full max-w-sm mx-4 text-center">
-              <div className="text-2xl font-bold text-gray-700 mb-1">スコア: {score}</div>
-              <div className="text-sm text-gray-500 mb-8">10回ミスに達しました</div>
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={() => {
-                    gameOverRef.current = false;
-                    setGameOverVisible(false);
-                    setSession({ phase: "idle" });
-                  }}
-                  className="px-6 py-3 rounded-xl bg-white border border-gray-200 text-gray-600 font-bold hover:bg-gray-50"
-                >
-                  やめる
-                </button>
-                <button
-                  onClick={() => {
-                    gameOverRef.current = false;
-                    setGameOverVisible(false);
-                    setSessionKey((k) => k + 1);
-                    const startIdx = ORDERED_PIECES.findIndex((p) => p.slug === startPieceSlug);
-                    setSession({
-                      phase: "playing",
-                      pieceIndex: startIdx >= 0 ? startIdx : 0,
-                      measureOffset: 0,
-                      score: 0,
-                      misses: 0,
-                    });
-                  }}
-                  className="px-6 py-3 rounded-xl bg-indigo-500 text-white font-bold hover:bg-indigo-600"
-                >
-                  もう一度挑戦
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
     );
   }

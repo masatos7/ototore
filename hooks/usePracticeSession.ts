@@ -189,7 +189,7 @@ export function usePracticeSession() {
             const correct = finalJudgements.filter((j) => j.judgement === "correct").length;
             const wrong = finalJudgements.filter((j) => j.judgement === "wrong").length;
             const total = finalJudgements.filter((j) => j.judgement !== "pending").length;
-            setSessionResult({ accuracy, correctCount: correct, totalCount: total, wrongCount: wrong, passed: accuracy >= 80 });
+            setSessionResult({ accuracy, correctCount: correct, totalCount: total, wrongCount: wrong, passed: accuracy >= 90 });
             setStatus("result");
             setProgress(0);
           },
