@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { usePitchDetection } from "./usePitchDetection";
 import { useMetronome } from "./useMetronome";
-import { judgeNote, calculateAccuracy, TIMING_WINDOW_SEC, type JudgementResult, type ActiveNote } from "@/lib/judgement";
+import { judgeNote, calculateAccuracy, computeNoteScore, TIMING_WINDOW_SEC, type JudgementResult, type ActiveNote } from "@/lib/judgement";
 
 export type SessionStatus = "idle" | "countdown" | "playing" | "result";
 
@@ -29,6 +29,7 @@ export function usePracticeSession() {
   const [displayElapsedSec, setDisplayElapsedSec] = useState(-100);
   const [judgements, setJudgements] = useState<JudgementResult[]>([]);
   const [lastJudgement, setLastJudgement] = useState<"correct" | "wrong" | null>(null);
+  const [lastScore, setLastScore] = useState<number>(0);
   const [sessionResult, setSessionResult] = useState<SessionResult | null>(null);
   const [countdown, setCountdown] = useState(0);
 
@@ -67,6 +68,11 @@ export function usePracticeSession() {
         };
         judgementsRef.current[i] = newJudgement;
         setJudgements([...judgementsRef.current]);
+        if (result === "correct") {
+          const timeDiff = Math.abs(currentTimeSec - note.startTimeSec);
+          const pts = computeNoteScore(timeDiff);
+          setLastScore(pts);
+        }
         setLastJudgement(result);
         setTimeout(() => setLastJudgement(null), 400);
         break;
@@ -221,6 +227,7 @@ export function usePracticeSession() {
     totalDurationSec: totalDurationSecRef.current,
     judgements,
     lastJudgement,
+    lastScore,
     sessionResult,
     countdown,
     isListening,

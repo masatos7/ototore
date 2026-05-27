@@ -24,7 +24,7 @@ interface PracticeScreenProps {
   hudMisses?: number;
   maxMisses?: number;
   onWrong?: () => void;
-  onCorrect?: () => void;
+  onCorrect?: (points: number) => void;
   onStart?: () => void;
   onResult?: (accuracy: number, passed: boolean, wrongCount: number) => void;
   onBack?: () => void;
@@ -65,6 +65,7 @@ export default function PracticeScreen({
     totalDurationSec,
     judgements,
     lastJudgement,
+    lastScore,
     sessionResult,
     countdown,
     isListening,
@@ -174,8 +175,8 @@ export default function PracticeScreen({
   const onCorrectRef = useRef(onCorrect);
   useEffect(() => { onCorrectRef.current = onCorrect; });
   useEffect(() => {
-    if (lastJudgement === "correct") onCorrectRef.current?.();
-  }, [lastJudgement]);
+    if (lastJudgement === "correct") onCorrectRef.current?.(lastScore);
+  }, [lastJudgement, lastScore]);
 
   const handleResultAction = useCallback((retry: boolean) => {
     if (retry) {
@@ -396,7 +397,7 @@ export default function PracticeScreen({
         </div>
       )}
 
-      <JudgementOverlay judgement={lastJudgement} />
+      <JudgementOverlay judgement={lastJudgement} score={lastScore} />
     </div>
   );
 }

@@ -18,6 +18,17 @@ export interface ActiveNote {
 
 export const TIMING_WINDOW_SEC = 0.35; // ±350ms tolerance
 
+export function computeNoteScore(timeDiff: number): number {
+  const ratio = 1 - timeDiff / TIMING_WINDOW_SEC;
+  return Math.max(1, Math.round(ratio * 10));
+}
+
+export function getNoteGrade(score: number): "Perfect" | "Great" | "Good" {
+  if (score >= 9) return "Perfect";
+  if (score >= 5) return "Great";
+  return "Good";
+}
+
 export function judgeNote(
   activeNote: ActiveNote,
   detectedMidi: number,

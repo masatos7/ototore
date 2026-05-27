@@ -63,11 +63,11 @@ export default function ScoreReadingPage() {
   }, []);
 
   // Real-time correct note increment
-  const handleCorrect = useCallback(() => {
+  const handleCorrect = useCallback((points: number) => {
     if (gameOverRef.current) return;
     setSession((prev) => {
       if (prev.phase !== "playing") return prev;
-      return { ...prev, score: prev.score + 1 };
+      return { ...prev, score: prev.score + points };
     });
   }, []);
 
