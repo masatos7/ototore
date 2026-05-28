@@ -5,13 +5,11 @@ import Link from "next/link";
 import { PIECES } from "@/lib/pieces";
 import PracticeScreen, { type HandFilter } from "@/components/PracticeScreen";
 
-const SEGMENT_SIZE = 4;
-
 const ORDERED_PIECES = [...PIECES].sort((a, b) => a.difficulty - b.difficulty);
 
 type SessionState =
   | { phase: "idle" }
-  | { phase: "playing"; pieceIndex: number; measureOffset: number; score: number }
+  | { phase: "playing"; pieceIndex: number; score: number }
   | { phase: "transition"; message: string; nextPieceIndex: number; score: number }
   | { phase: "complete"; score: number };
 
@@ -28,7 +26,6 @@ export default function ScoreReadingPage() {
       setSession({
         phase: "playing",
         pieceIndex: session.nextPieceIndex,
-        measureOffset: 0,
         score: session.score,
       });
     }, 2500);
@@ -41,7 +38,6 @@ export default function ScoreReadingPage() {
     setSession({
       phase: "playing",
       pieceIndex: startIdx >= 0 ? startIdx : 0,
-      measureOffset: 0,
       score: 0,
     });
   }, [startPieceSlug]);
@@ -54,28 +50,22 @@ export default function ScoreReadingPage() {
     });
   }, []);
 
-  // Called when user presses "次へ進む" (accuracy >= 90% only)
+  // Called automatically when cleared (accuracy >= 90%)
   const handleResult = useCallback((_accuracy: number, _passed: boolean, _wrongCount: number) => {
     setSession((prev) => {
       if (prev.phase !== "playing") return prev;
 
       const currentPiece = ORDERED_PIECES[prev.pieceIndex];
-      const nextMeasure = prev.measureOffset + SEGMENT_SIZE;
-
-      if (nextMeasure >= currentPiece.totalMeasures) {
-        const nextIdx = prev.pieceIndex + 1;
-        if (nextIdx >= ORDERED_PIECES.length) {
-          return { phase: "complete", score: prev.score };
-        }
-        const nextPiece = ORDERED_PIECES[nextIdx];
-        const levelUp = nextPiece.difficulty > currentPiece.difficulty;
-        const message = levelUp
-          ? `レベルアップ！ 次の曲: ${nextPiece.title}`
-          : `次の曲: ${nextPiece.title}`;
-        return { phase: "transition", message, nextPieceIndex: nextIdx, score: prev.score };
+      const nextIdx = prev.pieceIndex + 1;
+      if (nextIdx >= ORDERED_PIECES.length) {
+        return { phase: "complete", score: prev.score };
       }
-
-      return { ...prev, measureOffset: nextMeasure };
+      const nextPiece = ORDERED_PIECES[nextIdx];
+      const levelUp = nextPiece.difficulty > currentPiece.difficulty;
+      const message = levelUp
+        ? `レベルアップ！ 次の曲: ${nextPiece.title}`
+        : `次の曲: ${nextPiece.title}`;
+      return { phase: "transition", message, nextPieceIndex: nextIdx, score: prev.score };
     });
   }, []);
 
@@ -118,26 +108,22 @@ export default function ScoreReadingPage() {
 
   // ---- Playing ----
   if (session.phase === "playing") {
-    const { pieceIndex, measureOffset } = session;
+    const { pieceIndex } = session;
     const currentPiece = ORDERED_PIECES[pieceIndex];
-    const endMeasure = Math.min(measureOffset + SEGMENT_SIZE, currentPiece.totalMeasures);
 
     return (
-      <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50">
-        <div className="max-w-3xl mx-auto px-4 py-8">
-          <PracticeScreen
-            key={`${sessionKey}-${pieceIndex}-${measureOffset}`}
-            piece={currentPiece}
-            startMeasure={measureOffset}
-            endMeasure={endMeasure}
-            handFilter={hand}
-            hudScore={session.score}
-            onCorrect={handleCorrect}
-            onResult={handleResult}
-            onBack={() => setSession({ phase: "idle" })}
-          />
-        </div>
-      </main>
+      <PracticeScreen
+        key={`${sessionKey}-${pieceIndex}`}
+        piece={currentPiece}
+        startMeasure={0}
+        endMeasure={currentPiece.totalMeasures}
+        handFilter={hand}
+        hudScore={session.score}
+        songMasterPath={`/song-master/${currentPiece.slug}`}
+        onCorrect={handleCorrect}
+        onResult={handleResult}
+        onBack={() => setSession({ phase: "idle" })}
+      />
     );
   }
 

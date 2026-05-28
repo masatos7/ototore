@@ -80,18 +80,14 @@ export default function SongMasterPiecePage({ params }: PageProps) {
 
   if (practicing && currentSegment) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
-        <div className="max-w-3xl mx-auto px-4 py-8">
-          <PracticeScreen
-            piece={piece}
-            startMeasure={currentSegment.startMeasure}
-            endMeasure={currentSegment.endMeasure}
-            handFilter={handMode}
-            onResult={handleResult}
-            onBack={() => setPracticing(false)}
-          />
-        </div>
-      </main>
+      <PracticeScreen
+        piece={piece}
+        startMeasure={currentSegment.startMeasure}
+        endMeasure={currentSegment.endMeasure}
+        handFilter={handMode}
+        onResult={handleResult}
+        onBack={() => setPracticing(false)}
+      />
     );
   }
 

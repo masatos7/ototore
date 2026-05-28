@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import MetronomeControl from "./MetronomeControl";
 import JudgementOverlay from "./JudgementOverlay";
 import ScrollingStaff from "./ScrollingStaff";
@@ -22,6 +23,7 @@ interface PracticeScreenProps {
   alwaysAdvance?: boolean;
   paused?: boolean;
   hudScore?: number;
+  songMasterPath?: string;
   onWrong?: () => void;
   onCorrect?: (points: number) => void;
   onStart?: () => void;
@@ -37,6 +39,7 @@ export default function PracticeScreen({
   alwaysAdvance = false,
   paused = false,
   hudScore,
+  songMasterPath,
   onWrong,
   onCorrect,
   onStart,
@@ -59,7 +62,6 @@ export default function PracticeScreen({
     status,
     progress,
     displayElapsedSec,
-    totalDurationSec,
     judgements,
     lastJudgement,
     lastScore,
@@ -89,7 +91,6 @@ export default function PracticeScreen({
       setKeySignature(parseKeySignature(xmlText));
       const parsed = parseNotesFromXML(xmlText, bpm, startMeasure, endMeasure);
       events = filterHand(parsed);
-      // Judge only the notes the user is supposed to play (selected hand, no rests)
       notes = filterHand(parsed)
         .filter((n) => !n.isRest)
         .map((n) => ({
@@ -130,17 +131,15 @@ export default function PracticeScreen({
   const onStartRef = useRef(onStart);
   useEffect(() => { onStartRef.current = onStart; });
 
-  const handleToggle = useCallback(async () => {
-    if (status === "playing" || status === "countdown") {
-      setNoteEvents([]);
-      stop();
-      return;
-    }
+  const handleStop = useCallback(() => {
+    setNoteEvents([]);
+    stop();
+  }, [stop]);
+
+  const handleStartPractice = useCallback(async () => {
     onStartRef.current?.();
-    if (!alwaysAdvance) {
-      await startPractice();
-    }
-  }, [status, stop, startPractice, alwaysAdvance]);
+    await startPractice();
+  }, [startPractice]);
 
   const handleDemo = useCallback(async () => {
     if (demoIsPlaying) {
@@ -175,30 +174,30 @@ export default function PracticeScreen({
     if (lastJudgement === "correct") onCorrectRef.current?.(lastScore);
   }, [lastJudgement, lastScore]);
 
-  const handleResultAction = useCallback((retry: boolean) => {
-    if (retry) {
-      setNoteEvents([]);
-      stop();
-    } else if (sessionResult) {
-      onResult?.(sessionResult.accuracy, sessionResult.passed, sessionResult.wrongCount);
-    }
-  }, [sessionResult, onResult, stop]);
-
-  // Auto-start on mount in session mode
+  // Auto-start on mount: if mic already granted, skip the idle screen
   const startPracticeRef = useRef(startPractice);
   useEffect(() => { startPracticeRef.current = startPractice; });
   useEffect(() => {
-    if (alwaysAdvance) startPracticeRef.current();
+    if (alwaysAdvance) {
+      startPracticeRef.current();
+      return;
+    }
+    navigator.permissions
+      .query({ name: 'microphone' as PermissionName })
+      .then((result) => {
+        if (result.state === 'granted') startPracticeRef.current();
+      })
+      .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-advance in session mode
+  // Auto-advance when cleared
   useEffect(() => {
-    if (!alwaysAdvance || status !== "result" || !sessionResult) return;
+    if (status !== "result" || !sessionResult || !sessionResult.passed) return;
     const timer = setTimeout(() => {
       onResult?.(sessionResult.accuracy, sessionResult.passed, sessionResult.wrongCount);
     }, 2000);
     return () => clearTimeout(timer);
-  }, [alwaysAdvance, status, sessionResult, onResult]);
+  }, [status, sessionResult, onResult]);
 
   const handleDemoFromResult = useCallback(async () => {
     stop();
@@ -211,25 +210,27 @@ export default function PracticeScreen({
   }, [stop, startPractice]);
 
   const elapsedSec = demoIsPlaying ? demoElapsedSec : displayElapsedSec;
-  const measuresLabel = `第${startMeasure + 1}〜${endMeasure}小節`;
 
   const liveAccuracy = calculateAccuracy(judgements);
   const hasJudged = judgements.some(j => j.judgement !== "pending");
 
+  const isActive = status === "playing" || status === "countdown";
+  const isIdle = status === "idle" && !alwaysAdvance;
+
   return (
-    <div className="flex flex-col gap-4 w-full max-w-3xl mx-auto">
+    <div className="fixed inset-0 flex flex-col bg-white overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 shrink-0">
         {onBack && (
-          <button onClick={onBack} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
+          <button onClick={onBack} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
             ←
           </button>
         )}
-        <div>
-          <h2 className="font-bold text-gray-800 text-lg">{piece.title}</h2>
-          <p className="text-sm text-gray-500">{piece.composer} · {measuresLabel}</p>
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-gray-800 truncate">{piece.title}</div>
+          <div className="text-xs text-gray-500 truncate">{piece.composer}</div>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {isListening && (
             <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
@@ -241,16 +242,27 @@ export default function PracticeScreen({
               マイクエラー
             </span>
           )}
+          {isActive && (
+            <button
+              onClick={handleStop}
+              className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-sm font-bold hover:bg-red-600"
+            >
+              ■ 停止
+            </button>
+          )}
+          {demoIsPlaying && (
+            <button
+              onClick={handleDemo}
+              className="px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 text-sm font-medium hover:bg-amber-200"
+            >
+              ■ 停止
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Scrolling staff */}
-      <div className="relative overflow-hidden bg-white"
-           style={{
-             height: noteEvents.some(n => n.part === 1) ? "280px" : "200px",
-             width: "100vw",
-             marginLeft: "calc(50% - 50vw)",
-           }}>
+      {/* Sheet music — fills remaining height */}
+      <div className="flex-1 relative overflow-hidden">
         <ScrollingStaff
           notes={noteEvents}
           judgements={demoIsPlaying ? [] : judgements}
@@ -263,12 +275,9 @@ export default function PracticeScreen({
           keySignature={keySignature}
         />
 
-        {/* Accuracy (+ optional score) HUD — right edge aligned with max-w-3xl px-4 container */}
+        {/* Accuracy / score HUD */}
         {status === "playing" && (
-          <div
-            className="absolute top-2 z-10 flex items-center gap-3"
-            style={{ right: "calc(max(0px, (100vw - 48rem) / 2) + 1rem)" }}
-          >
+          <div className="absolute top-2 right-4 z-10 flex items-center gap-3">
             {hudScore !== undefined && (
               <>
                 <span className="text-sm font-black text-gray-700">
@@ -286,77 +295,70 @@ export default function PracticeScreen({
           </div>
         )}
 
-        {/* Lead-in countdown overlay */}
+        {/* Countdown overlay */}
         {status === "countdown" && countdown > 0 && (
-          <div className="absolute inset-0 flex items-center justify-center z-10"
-               style={{ background: "rgba(255,255,255,0.5)" }}>
+          <div className="absolute inset-0 flex items-center justify-center z-10 bg-white/50">
             <div className="text-6xl font-black text-indigo-500 animate-pulse">{countdown}</div>
+          </div>
+        )}
+
+        {/* Progress bar at bottom of sheet */}
+        {status === "playing" && (
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-100">
+            <div
+              className="h-full bg-indigo-400 transition-none"
+              style={{ width: `${progress * 100}%` }}
+            />
           </div>
         )}
       </div>
 
-      {/* Progress bar (playing only) */}
-      {status === "playing" && (
-        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-indigo-400 rounded-full transition-none"
-            style={{ width: `${progress * 100}%` }}
+      {/* Pre-practice bottom sheet (idle, not auto-started) */}
+      {isIdle && !demoIsPlaying && (
+        <div className="shrink-0 bg-white border-t border-gray-100 px-4 pt-3 pb-6">
+          <MetronomeControl
+            bpm={bpm}
+            onBpmChange={setBpm}
+            disabled={false}
           />
+          <div className="flex gap-3 mt-3">
+            <button
+              onClick={handleDemo}
+              className="flex-1 py-3 rounded-xl text-sm font-medium bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
+            >
+              ♪ お手本を聴く
+            </button>
+            <button
+              onClick={handleStartPractice}
+              className="flex-1 py-3 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              ▶ 練習スタート
+            </button>
+          </div>
         </div>
       )}
 
-      {/* BPM gauge (shared) */}
-      <MetronomeControl
-        bpm={bpm}
-        onBpmChange={setBpm}
-        disabled={status === "playing" || status === "countdown" || demoIsPlaying}
-      />
-
-      {/* Action buttons */}
-      <div className="flex gap-3">
-        <button
-          onClick={handleDemo}
-          disabled={status === "playing" || status === "countdown"}
-          className={`flex-1 py-3 rounded-xl text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-            demoIsPlaying
-              ? "bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200"
-              : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
-          }`}
-        >
-          {demoIsPlaying ? "■ 停止" : "♪ お手本を聴く"}
-        </button>
-        <button
-          onClick={handleToggle}
-          disabled={demoIsPlaying}
-          className={`flex-1 py-3 rounded-xl text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-            status === "playing" || status === "countdown"
-              ? "bg-red-500 hover:bg-red-600 text-white"
-              : "bg-indigo-600 hover:bg-indigo-700 text-white"
-          }`}
-        >
-          {status === "playing" || status === "countdown" ? "■ 停止" : "▶ 練習スタート"}
-        </button>
-      </div>
-
-      {/* Live judgement dots */}
-      {(status === "playing" || status === "result") && judgements.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 bg-white rounded-xl p-3 shadow-sm border border-gray-100">
-          {judgements.map((j, i) => (
-            <span
-              key={i}
-              className={`w-5 h-5 rounded-full ${
-                j.judgement === "correct" ? "bg-green-400"
-                : j.judgement === "wrong"  ? "bg-red-400"
-                : j.judgement === "missed" ? "bg-gray-300"
-                : "bg-gray-100"
-              }`}
-              title={j.judgement}
-            />
-          ))}
+      {/* Demo playing: bottom stop strip */}
+      {demoIsPlaying && (
+        <div className="shrink-0 bg-white border-t border-gray-100 px-4 pt-3 pb-6">
+          <div className="flex gap-3">
+            <button
+              onClick={handleDemo}
+              className="flex-1 py-3 rounded-xl text-sm font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200"
+            >
+              ■ お手本を停止
+            </button>
+            <button
+              onClick={handleStartPractice}
+              className="flex-1 py-3 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              ▶ 練習スタート
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Result overlay */}
+      {/* Result modal */}
       {status === "result" && sessionResult && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/40 backdrop-blur-sm">
           <div className={`rounded-2xl p-6 border-2 w-full max-w-sm mx-4 shadow-2xl ${
@@ -373,29 +375,31 @@ export default function PracticeScreen({
                 {sessionResult.correctCount} / {sessionResult.totalCount} 正解
               </div>
             </div>
-            {alwaysAdvance ? (
+            {sessionResult.passed ? (
               <div className="text-center text-xs text-gray-400 mt-1">まもなく次へ進みます...</div>
             ) : (
-              <div className="flex gap-2">
-                <button
-                  onClick={handleDemoFromResult}
-                  className="flex-1 py-3 rounded-lg bg-white border border-amber-200 text-amber-700 font-medium hover:bg-amber-50 text-sm"
-                >
-                  ♪ お手本を聴く
-                </button>
-                <button
-                  onClick={handleRetryFromResult}
-                  className="flex-1 py-3 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 text-sm"
-                >
-                  ▶ もう一度挑戦
-                </button>
-                {sessionResult.passed && (
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
                   <button
-                    onClick={() => handleResultAction(false)}
-                    className="flex-1 py-3 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 text-sm"
+                    onClick={handleDemoFromResult}
+                    className="flex-1 py-3 rounded-lg bg-white border border-amber-200 text-amber-700 font-medium hover:bg-amber-50 text-sm"
                   >
-                    次へ進む
+                    ♪ お手本を聴く
                   </button>
+                  <button
+                    onClick={handleRetryFromResult}
+                    className="flex-1 py-3 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 text-sm"
+                  >
+                    ▶ もう一度挑戦
+                  </button>
+                </div>
+                {songMasterPath && (
+                  <Link
+                    href={songMasterPath}
+                    className="w-full py-3 rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700 text-sm text-center block"
+                  >
+                    曲マスターでこの曲を練習する
+                  </Link>
                 )}
               </div>
             )}
