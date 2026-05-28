@@ -59,11 +59,13 @@ export function usePitchDetection() {
       }
       const { PitchDetector } = pitchyRef.current;
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-
+      // Create AudioContext before getUserMedia so user activation is still valid
       const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       contextRef.current = ctx;
+      if (ctx.state === 'suspended') await ctx.resume();
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
 
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 2048;

@@ -24,8 +24,8 @@ export default function JudgementOverlay({ judgement, score = 0 }: JudgementOver
   if (judgement === "wrong") {
     return (
       <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
-        <div className="text-6xl font-black rounded-2xl px-8 py-4 animate-bounce text-red-500 bg-red-50 border-4 border-red-300">
-          ✗
+        <div className="rounded-2xl px-8 py-4 animate-bounce border-4 text-center text-red-500 bg-red-50 border-red-300">
+          <div className="text-4xl font-black">Miss</div>
         </div>
       </div>
     );

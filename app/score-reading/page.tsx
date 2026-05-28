@@ -120,6 +120,7 @@ export default function ScoreReadingPage() {
         handFilter={hand}
         hudScore={session.score}
         songMasterPath={`/song-master/${currentPiece.slug}`}
+        alwaysAdvance
         onCorrect={handleCorrect}
         onResult={handleResult}
         onBack={() => setSession({ phase: "idle" })}

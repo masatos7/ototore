@@ -174,7 +174,10 @@ export default function PracticeScreen({
     if (lastJudgement === "correct") onCorrectRef.current?.(lastScore);
   }, [lastJudgement, lastScore]);
 
-  // Auto-start on mount: if mic already granted, skip the idle screen
+  // Auto-start on mount: if mic already granted, skip the idle screen.
+  // autoStarting hides the button while we check permission + run startPractice,
+  // preventing a race where the user clicks during the async XML fetch.
+  const [autoStarting, setAutoStarting] = useState(!alwaysAdvance);
   const startPracticeRef = useRef(startPractice);
   useEffect(() => { startPracticeRef.current = startPractice; });
   useEffect(() => {
@@ -185,9 +188,13 @@ export default function PracticeScreen({
     navigator.permissions
       .query({ name: 'microphone' as PermissionName })
       .then((result) => {
-        if (result.state === 'granted') startPracticeRef.current();
+        if (result.state === 'granted') {
+          startPracticeRef.current().finally(() => setAutoStarting(false));
+        } else {
+          setAutoStarting(false);
+        }
       })
-      .catch(() => {});
+      .catch(() => { setAutoStarting(false); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-advance when cleared
@@ -215,7 +222,7 @@ export default function PracticeScreen({
   const hasJudged = judgements.some(j => j.judgement !== "pending");
 
   const isActive = status === "playing" || status === "countdown";
-  const isIdle = status === "idle" && !alwaysAdvance;
+  const isIdle = status === "idle" && !alwaysAdvance && !autoStarting;
 
   return (
     <div className="fixed inset-0 flex flex-col bg-white overflow-hidden">

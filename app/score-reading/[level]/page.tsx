@@ -57,6 +57,7 @@ export default function ScoreReadingLevelPage({ params }: PageProps) {
             piece={selectedPiece}
             startMeasure={currentMeasure}
             endMeasure={Math.min(currentMeasure + 4, totalMeasures)}
+            alwaysAdvance
             onResult={handleResult}
             onBack={() => setSelectedPiece(null)}
           />
