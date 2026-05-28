@@ -4,6 +4,7 @@ import { use, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { getPieceBySlug } from "@/lib/pieces";
 import PracticeScreen, { type HandFilter } from "@/components/PracticeScreen";
+import PrintScoreModal from "@/components/PrintScoreModal";
 import { useProgressStore } from "@/store/progressStore";
 
 interface PageProps {
@@ -15,6 +16,7 @@ export default function SongMasterPiecePage({ params }: PageProps) {
   const piece = getPieceBySlug(slug);
   const { songMaster, initPieceProgress, setSegmentSize, updateSegment } = useProgressStore();
   const [practicing, setPracticing] = useState(false);
+  const [showPrint, setShowPrint] = useState(false);
   const [handMode, setHandMode] = useState<HandFilter>('right');
 
   useEffect(() => {
@@ -103,7 +105,14 @@ export default function SongMasterPiecePage({ params }: PageProps) {
             <h1 className="text-xl font-black text-gray-800">{piece.title}</h1>
             <p className="text-sm text-gray-500">{piece.composer}</p>
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={() => setShowPrint(true)}
+              className="p-2 rounded-lg hover:bg-white text-gray-400 hover:text-gray-600 text-base leading-none"
+              title="楽譜を印刷"
+            >
+              🖨
+            </button>
             <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-sm font-medium">
               {segmentSize}小節 フェーズ
             </span>
@@ -242,6 +251,10 @@ export default function SongMasterPiecePage({ params }: PageProps) {
           </div>
         )}
       </div>
+
+      {showPrint && piece && (
+        <PrintScoreModal piece={piece} onClose={() => setShowPrint(false)} />
+      )}
     </main>
   );
 }

@@ -5,7 +5,6 @@ import Link from "next/link";
 import MetronomeControl from "./MetronomeControl";
 import JudgementOverlay from "./JudgementOverlay";
 import ScrollingStaff from "./ScrollingStaff";
-import PrintScoreModal from "./PrintScoreModal";
 import { usePracticeSession } from "@/hooks/usePracticeSession";
 import { useDemoPlayback } from "@/hooks/useDemoPlayback";
 import { parseNotesFromXML, parseKeySignature } from "@/lib/osmdUtils";
@@ -48,7 +47,6 @@ export default function PracticeScreen({
   onBack,
 }: PracticeScreenProps) {
   const [bpm, setBpm] = useState(piece.bpm);
-  const [showPrint, setShowPrint] = useState(false);
   const notesRef = useRef<ActiveNote[]>([]);
   const [noteEvents, setNoteEvents] = useState<NoteEvent[]>([]);
   const [keySignature, setKeySignature] = useState(0);
@@ -244,13 +242,6 @@ export default function PracticeScreen({
               マイクエラー
             </span>
           )}
-          <button
-            onClick={() => setShowPrint(true)}
-            className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 text-base leading-none"
-            title="楽譜を印刷"
-          >
-            🖨
-          </button>
           {isActive && (
             <button
               onClick={handleStop}
@@ -417,10 +408,6 @@ export default function PracticeScreen({
       )}
 
       <JudgementOverlay judgement={lastJudgement} score={lastScore} />
-
-      {showPrint && (
-        <PrintScoreModal piece={piece} onClose={() => setShowPrint(false)} />
-      )}
     </div>
   );
 }
