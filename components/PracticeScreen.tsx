@@ -280,12 +280,7 @@ export default function PracticeScreen({
               マイクエラー
             </span>
           )}
-          {hudScore !== undefined && isActive && (
-            <span style={{ fontSize: 13, fontWeight: 900, color: "var(--ink)", fontVariantNumeric: "tabular-nums" }}>
-              {hudScore}pt
-            </span>
-          )}
-          <span style={{
+<span style={{
             display: "inline-flex", alignItems: "center",
             background: "var(--lavender-50)", color: "var(--lavender-700)",
             border: "1px solid var(--lavender-100)",
@@ -314,10 +309,19 @@ export default function PracticeScreen({
         {status === "playing" && hasJudged && (
           <div style={{
             position: "absolute", top: 8, right: 12, zIndex: 10,
+            display: "flex", alignItems: "center", gap: 6,
             background: "rgba(255,255,255,0.9)", borderRadius: 999,
             padding: "4px 12px", backdropFilter: "blur(4px)",
             boxShadow: "0 2px 8px rgba(80,70,130,0.1)",
           }}>
+            {hudScore !== undefined && (
+              <span style={{ fontSize: 13, fontWeight: 900, color: "var(--ink)", fontVariantNumeric: "tabular-nums" }}>
+                {hudScore}pt
+              </span>
+            )}
+            {hudScore !== undefined && (
+              <span style={{ fontSize: 11, color: "var(--muted)" }}>·</span>
+            )}
             <span style={{
               fontSize: 13, fontWeight: 900,
               color: liveAccuracy >= 90 ? "var(--lavender-700)" : "var(--coral)",

@@ -61,7 +61,11 @@ export default function Home() {
                 display: "grid", placeItems: "center", flexShrink: 0, fontSize: 32,
               }}>
                 <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                  <path d="M12 6v15.5a3.5 3.5 0 1 1-2-3.16V8.5L22 6v13.5a3.5 3.5 0 1 1-2-3.16V8.7L12 10.3" stroke="#6A57C2" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                  <ellipse cx="8.5" cy="25" rx="5.5" ry="3.5" transform="rotate(-15 8.5 25)" fill="#6A57C2"/>
+                  <line x1="13.5" y1="23" x2="13.5" y2="7" stroke="#6A57C2" strokeWidth="2.5" strokeLinecap="round"/>
+                  <ellipse cx="21" cy="23" rx="5.5" ry="3.5" transform="rotate(-15 21 23)" fill="#6A57C2"/>
+                  <line x1="26" y1="21" x2="26" y2="5" stroke="#6A57C2" strokeWidth="2.5" strokeLinecap="round"/>
+                  <path d="M13.5 5.5L26 3.5L26 7L13.5 9Z" fill="#6A57C2"/>
                 </svg>
               </div>
               <div style={{ minWidth: 0 }}>
