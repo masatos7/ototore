@@ -17,16 +17,14 @@ export default function SongMasterPiecePage({ params }: PageProps) {
   const { songMaster, initPieceProgress, setSegmentSize, updateSegment } = useProgressStore();
   const [practicing, setPracticing] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
-  const [handMode, setHandMode] = useState<HandFilter>('right');
+  const [handMode, setHandMode] = useState<HandFilter>("right");
 
   useEffect(() => {
     useProgressStore.persist.rehydrate();
   }, []);
 
   useEffect(() => {
-    if (piece) {
-      initPieceProgress(slug, piece.totalMeasures);
-    }
+    if (piece) initPieceProgress(slug, piece.totalMeasures);
   }, [slug, piece, initPieceProgress]);
 
   const progress = songMaster[slug];
@@ -35,13 +33,13 @@ export default function SongMasterPiecePage({ params }: PageProps) {
     (accuracy: number, passed: boolean) => {
       if (!progress) return;
       if (passed) {
-        if (handMode === 'right') {
-          setHandMode('left');
-        } else if (handMode === 'left') {
-          setHandMode('both');
+        if (handMode === "right") {
+          setHandMode("left");
+        } else if (handMode === "left") {
+          setHandMode("both");
         } else {
           updateSegment(slug, progress.unlockedSegmentIndex, accuracy);
-          setHandMode('right');
+          setHandMode("right");
         }
       }
       setPracticing(false);
@@ -51,34 +49,41 @@ export default function SongMasterPiecePage({ params }: PageProps) {
 
   if (!piece) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="text-center text-gray-500">
+      <div className="stage" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center", color: "var(--muted)" }}>
           <p>曲が見つかりません</p>
-          <Link href="/song-master" className="text-purple-600 underline mt-2 block">
+          <Link href="/song-master" style={{ color: "var(--lavender-700)", textDecoration: "underline", marginTop: 8, display: "block" }}>
             一覧に戻る
           </Link>
         </div>
-      </main>
+      </div>
     );
   }
 
   if (!progress) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600" />
-      </main>
+      <div className="stage" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{
+          width: 32, height: 32, borderRadius: "50%",
+          border: "3px solid var(--lavender-100)",
+          borderTopColor: "var(--lavender-500)",
+          animation: "spin 0.8s linear infinite",
+        }} />
+      </div>
     );
   }
 
   const currentSegment = progress.segments[progress.unlockedSegmentIndex];
   const segmentSize = progress.segmentSize ?? 4;
+  const passedCount = progress.segments.filter((s) => s.passed).length;
+  const allPassed = progress.segments.every((s) => s.passed);
 
   const handleSegmentSizeChange = (size: 2 | 4 | 8 | 16) => {
     setSegmentSize(slug, piece.totalMeasures, size);
-    setHandMode('right');
+    setHandMode("right");
   };
 
-  const handLabel: Record<HandFilter, string> = { right: '右手', left: '左手', both: '両手' };
+  const handLabel: Record<HandFilter, string> = { right: "右手", left: "左手", both: "両手" };
 
   if (practicing && currentSegment) {
     return (
@@ -87,6 +92,7 @@ export default function SongMasterPiecePage({ params }: PageProps) {
         startMeasure={currentSegment.startMeasure}
         endMeasure={currentSegment.endMeasure}
         handFilter={handMode}
+        rangeLabel={`${segmentSize}小節 ・ ${handLabel[handMode]}`}
         onResult={handleResult}
         onBack={() => setPracticing(false)}
       />
@@ -94,64 +100,91 @@ export default function SongMasterPiecePage({ params }: PageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
-      <div className="max-w-2xl mx-auto px-4 py-10">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <Link href="/song-master" className="p-2 rounded-lg hover:bg-white text-gray-500">
-            ←
-          </Link>
+    <div className="stage">
+      <div className="fade-in" style={{ position: "relative", maxWidth: 880, margin: "0 auto", padding: "40px 40px 160px", zIndex: 2 }}>
+
+        {/* Back button */}
+        <Link href="/song-master" style={{
+          display: "inline-flex", alignItems: "center", gap: 8,
+          background: "#fff", border: "1px solid rgba(140,120,200,0.12)",
+          color: "var(--lavender-700)", fontWeight: 700, borderRadius: 999,
+          padding: "10px 18px", fontSize: 14, textDecoration: "none",
+          boxShadow: "var(--card-shadow)", transition: "background .15s ease",
+        }}>
+          ← もどる
+        </Link>
+
+        {/* Heading */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "24px 0 20px" }}>
           <div>
-            <h1 className="text-xl font-black text-gray-800">{piece.title}</h1>
-            <p className="text-sm text-gray-500">{piece.composer}</p>
+            <h1 style={{ margin: 0, fontSize: "clamp(22px,3vw,32px)", fontWeight: 900, letterSpacing: "0.02em", color: "var(--ink)" }}>
+              {piece.title}
+            </h1>
+            <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: 14, fontWeight: 600 }}>{piece.composer}</p>
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button
               onClick={() => setShowPrint(true)}
-              className="p-2 rounded-lg hover:bg-white text-gray-400 hover:text-gray-600 text-base leading-none"
               title="楽譜を印刷"
+              style={{
+                width: 40, height: 40, borderRadius: "50%", border: "1px solid rgba(140,120,200,0.12)",
+                background: "rgba(255,255,255,0.85)", display: "grid", placeItems: "center",
+                cursor: "pointer", fontSize: 18, boxShadow: "var(--card-shadow)",
+              }}
             >
               🖨
             </button>
-            <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-sm font-medium">
+            <span style={{
+              padding: "8px 16px", borderRadius: 999,
+              background: "var(--lavender-50)", color: "var(--lavender-700)",
+              border: "1px solid var(--lavender-100)",
+              fontWeight: 800, fontSize: 13,
+            }}>
               {segmentSize}小節 フェーズ
             </span>
           </div>
         </div>
 
-        {/* Overall progress */}
-        <div className="bg-white rounded-xl p-4 mb-5 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-bold text-gray-600">全体の進捗</span>
-            <span className="text-sm text-gray-500">
-              {progress.segments.filter((s) => s.passed).length}/{progress.segments.length} クリア
+        {/* Overall progress bar */}
+        <div style={{
+          background: "rgba(255,255,255,0.92)", borderRadius: 18,
+          padding: "18px 22px", marginBottom: 20,
+          boxShadow: "var(--card-shadow)", border: "1px solid rgba(140,120,200,0.06)",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ink-soft)" }}>全体の進捗</span>
+            <span style={{ fontSize: 14, color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
+              {passedCount}/{progress.segments.length} クリア
             </span>
           </div>
-          <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-purple-400 rounded-full transition-all"
-              style={{
-                width: `${
-                  (progress.segments.filter((s) => s.passed).length / progress.segments.length) * 100
-                }%`,
-              }}
-            />
+          <div style={{ height: 10, background: "var(--lavender-50)", borderRadius: 999, overflow: "hidden" }}>
+            <div style={{
+              height: "100%",
+              background: "linear-gradient(90deg,var(--lavender-500),var(--pink))",
+              borderRadius: 999, width: `${(passedCount / progress.segments.length) * 100}%`,
+              transition: "width .3s ease",
+            }} />
           </div>
         </div>
 
         {/* Segment size selector */}
-        <div className="mb-5">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">1回の練習範囲</p>
-          <div className="flex gap-2">
+        <div style={{ marginBottom: 20 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)", margin: "0 0 10px 2px" }}>1回の練習範囲</p>
+          <div role="tablist" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
             {([2, 4, 8, 16] as const).map((n) => (
               <button
                 key={n}
+                role="tab"
+                aria-selected={segmentSize === n}
                 onClick={() => handleSegmentSizeChange(n)}
-                className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all
-                  ${segmentSize === n
-                    ? "bg-white ring-2 ring-purple-500 ring-offset-1 text-purple-700 shadow-md"
-                    : "bg-white/60 border border-gray-200 text-gray-500 hover:bg-white hover:shadow-sm"
-                  }`}
+                style={{
+                  border: segmentSize === n ? "1.5px solid var(--lavender-500)" : "1.5px solid rgba(140,120,200,0.14)",
+                  background: segmentSize === n ? "#fff" : "rgba(255,255,255,0.85)",
+                  color: segmentSize === n ? "var(--lavender-700)" : "var(--ink-soft)",
+                  fontWeight: 800, fontSize: 14, padding: "14px 8px", borderRadius: 14, cursor: "pointer",
+                  transition: "all .15s ease",
+                  boxShadow: segmentSize === n ? "0 2px 10px rgba(106,87,194,0.14)" : "none",
+                }}
               >
                 {n}小節
               </button>
@@ -159,54 +192,79 @@ export default function SongMasterPiecePage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Segment Map */}
-        <div className="grid gap-2 mb-6">
+        {/* Hand mode progress */}
+        {currentSegment && !currentSegment.passed && (
+          <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+            {(["right", "left", "both"] as HandFilter[]).map((mode) => {
+              const done = mode === "right" ? handMode === "left" || handMode === "both"
+                : mode === "left" ? handMode === "both" : false;
+              const active = mode === handMode;
+              return (
+                <div key={mode} style={{
+                  flex: 1, padding: "10px 8px", borderRadius: 14, textAlign: "center",
+                  fontSize: 14, fontWeight: 800,
+                  background: active ? "var(--lavender-500)" : done ? "rgba(93,199,133,0.15)" : "rgba(255,255,255,0.6)",
+                  color: active ? "#fff" : done ? "var(--green)" : "var(--muted)",
+                  border: active ? "none" : done ? "1px solid rgba(93,199,133,0.3)" : "1px solid rgba(140,120,200,0.12)",
+                }}>
+                  {done ? "✓ " : ""}{handLabel[mode]}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Segment map */}
+        <div style={{ display: "grid", gap: 10, marginBottom: 24 }}>
           {progress.segments.map((seg, i) => {
             const isUnlocked = i <= progress.unlockedSegmentIndex;
             const isCurrent = i === progress.unlockedSegmentIndex;
-
             return (
               <div
                 key={i}
-                className={`rounded-xl p-4 border transition-all ${
-                  seg.passed
-                    ? "bg-green-50 border-green-200"
-                    : isCurrent
-                    ? "bg-purple-50 border-purple-200 shadow-sm"
-                    : isUnlocked
-                    ? "bg-white border-gray-100"
-                    : "bg-gray-50 border-gray-100 opacity-50"
-                }`}
+                style={{
+                  borderRadius: 16, padding: "14px 18px",
+                  border: seg.passed ? "1px solid rgba(93,199,133,0.3)"
+                    : isCurrent ? "1.5px solid var(--lavender-500)"
+                    : "1px solid rgba(140,120,200,0.08)",
+                  background: seg.passed ? "rgba(93,199,133,0.08)"
+                    : isCurrent ? "var(--lavender-50)"
+                    : !isUnlocked ? "rgba(255,255,255,0.4)"
+                    : "rgba(255,255,255,0.85)",
+                  opacity: !isUnlocked ? 0.5 : 1,
+                  boxShadow: isCurrent ? "0 2px 10px rgba(106,87,194,0.10)" : "none",
+                  transition: "all .15s ease",
+                }}
               >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
-                      seg.passed
-                        ? "bg-green-400 text-white"
-                        : isCurrent
-                        ? "bg-purple-500 text-white"
-                        : "bg-gray-200 text-gray-500"
-                    }`}
-                  >
-                    {seg.passed ? "✓" : isUnlocked ? i + 1 : "🔒"}
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
+                    display: "grid", placeItems: "center", fontSize: 14, fontWeight: 800,
+                    background: seg.passed ? "var(--green)" : isCurrent ? "var(--lavender-500)" : "rgba(140,120,200,0.12)",
+                    color: seg.passed || isCurrent ? "#fff" : "var(--muted)",
+                  }}>
+                    {seg.passed ? "✓" : !isUnlocked ? "🔒" : i + 1}
                   </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-gray-700">
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>
                       第{seg.startMeasure + 1}〜{seg.endMeasure}小節
                     </div>
                     {seg.attempts > 0 && (
-                      <div className="text-xs text-gray-400">
-                        最高 {Math.round(seg.bestAccuracy)}% · {seg.attempts}回挑戦
+                      <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                        最高 {Math.round(seg.bestAccuracy)}% ・ {seg.attempts}回挑戦
                       </div>
                     )}
                   </div>
                   {isCurrent && !seg.passed && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-600">
+                    <span style={{
+                      fontSize: 12, padding: "4px 10px", borderRadius: 999,
+                      background: "var(--lavender-100)", color: "var(--lavender-700)", fontWeight: 700,
+                    }}>
                       現在地
                     </span>
                   )}
                   {seg.passed && (
-                    <span className="text-xs text-green-600 font-medium">クリア!</span>
+                    <span style={{ fontSize: 12, color: "var(--green)", fontWeight: 700 }}>クリア!</span>
                   )}
                 </div>
               </div>
@@ -214,40 +272,28 @@ export default function SongMasterPiecePage({ params }: PageProps) {
           })}
         </div>
 
-        {/* Hand mode steps */}
-        {currentSegment && !currentSegment.passed && (
-          <div className="flex gap-2 mb-4">
-            {(['right', 'left', 'both'] as HandFilter[]).map((mode) => {
-              const done =
-                mode === 'right' ? handMode === 'left' || handMode === 'both'
-                : mode === 'left' ? handMode === 'both'
-                : false;
-              const active = mode === handMode;
-              return (
-                <div key={mode} className={`flex-1 py-2 rounded-xl text-sm font-bold text-center transition-all
-                  ${active ? 'bg-purple-500 text-white shadow-md' : done ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
-                  {done ? '✓ ' : ''}{handLabel[mode]}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
         {/* Start button */}
-        {currentSegment && !currentSegment.passed && (
+        {currentSegment && !allPassed && (
           <button
             onClick={() => setPracticing(true)}
-            className="w-full py-4 rounded-xl bg-purple-600 text-white font-bold text-lg hover:bg-purple-700 transition-colors shadow-md"
+            style={{
+              width: "100%", border: "none", borderRadius: 18,
+              background: "linear-gradient(160deg,#8B7DD8,#6A57C2)",
+              color: "#fff", fontSize: 18, fontWeight: 800, letterSpacing: "0.02em",
+              padding: "20px 24px", cursor: "pointer",
+              boxShadow: "0 10px 26px rgba(106,87,194,0.32)",
+              transition: "transform .15s ease, filter .15s ease",
+            }}
           >
             {handLabel[handMode]}で練習する（第{currentSegment.startMeasure + 1}〜{currentSegment.endMeasure}小節）
           </button>
         )}
 
-        {progress.segments.every((s) => s.passed) && (
-          <div className="text-center py-8">
-            <div className="text-5xl mb-3">🏆</div>
-            <p className="text-xl font-black text-gray-800">マスター達成!</p>
-            <p className="text-sm text-gray-500 mt-1">すべての小節をクリアしました</p>
+        {allPassed && (
+          <div style={{ textAlign: "center", padding: "40px 0" }}>
+            <div style={{ fontSize: 56, marginBottom: 12 }}>🏆</div>
+            <p style={{ fontSize: 22, fontWeight: 900, color: "var(--ink)", margin: "0 0 6px" }}>マスター達成!</p>
+            <p style={{ fontSize: 14, color: "var(--muted)", margin: 0 }}>すべての小節をクリアしました</p>
           </div>
         )}
       </div>
@@ -255,6 +301,6 @@ export default function SongMasterPiecePage({ params }: PageProps) {
       {showPrint && piece && (
         <PrintScoreModal piece={piece} onClose={() => setShowPrint(false)} />
       )}
-    </main>
+    </div>
   );
 }

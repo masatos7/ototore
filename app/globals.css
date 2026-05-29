@@ -1,21 +1,117 @@
 @import "tailwindcss";
 
-
+/* ============================================================
+   音トレピアノ — design tokens
+   ============================================================ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ink: #2A2A40;
+  --ink-soft: #4A4A65;
+  --muted: #8A8AA0;
+
+  --lavender-50: #F4F1FB;
+  --lavender-100: #EAE3F8;
+  --lavender-200: #D8CCF1;
+  --lavender-500: #8B7DD8;
+  --lavender-700: #6A57C2;
+
+  --pink: #FF7AB6;
+  --coral: #F56B6B;
+  --orange: #F59533;
+  --yellow: #F2C535;
+  --green: #5DC785;
+  --blue: #4D9FE0;
+
+  --card-bg: #FFFFFF;
+  --card-shadow: 0 2px 4px rgba(80, 70, 130, 0.04), 0 12px 32px rgba(80, 70, 130, 0.07);
+  --card-shadow-hover: 0 4px 8px rgba(80, 70, 130, 0.06), 0 20px 44px rgba(80, 70, 130, 0.12);
+
+  --r-card: 22px;
+  --r-pill: 999px;
+  --r-icon: 16px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ---- Base ---- */
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  color: var(--ink);
+  font-family: "Zen Maru Gothic", "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
+button { font-family: inherit; }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ---- Stage background ---- */
+.stage {
+  position: relative;
+  min-height: 100vh;
+  background-color: #FFFFFF;
+  background-image:
+    url("/images/bg-top.png"),
+    url("/images/bg-bottom.png");
+  background-repeat: no-repeat, no-repeat;
+  background-position: top center, bottom center;
+  background-size: 100% auto, 100% auto;
+  overflow-x: hidden;
+}
+
+/* ---- Animations ---- */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeUp 0.35s ease both; }
+
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.9) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes gentle-rise {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-4px); }
+}
+@keyframes modal-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ---- BPM slider ---- */
+.bpm-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      90deg,
+      var(--lavender-500) 0,
+      var(--lavender-500) var(--fill, 50%),
+      #E8E2F4 var(--fill, 50%),
+      #E8E2F4 100%
+    );
+  outline: none;
+  cursor: pointer;
+}
+.bpm-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--lavender-500);
+  border: 3px solid #fff;
+  box-shadow: 0 2px 6px rgba(106, 87, 194, 0.4);
+  cursor: pointer;
+}
+.bpm-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--lavender-500);
+  border: 3px solid #fff;
+  box-shadow: 0 2px 6px rgba(106, 87, 194, 0.4);
+  cursor: pointer;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PIECES } from "@/lib/pieces";
 import { useProgressStore } from "@/store/progressStore";
@@ -9,6 +9,7 @@ import { useMounted } from "@/hooks/useMounted";
 export default function SongMasterPage() {
   const mounted = useMounted();
   const { songMaster, initPieceProgress } = useProgressStore();
+  const [step, setStep] = useState<"2" | "4" | "8" | "全">("2");
 
   useEffect(() => {
     useProgressStore.persist.rehydrate();
@@ -18,90 +19,122 @@ export default function SongMasterPage() {
     initPieceProgress(slug, totalMeasures);
   };
 
+  const sortedPieces = [...PIECES].sort((a, b) => a.difficulty - b.difficulty);
+
   return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
-      <div className="max-w-2xl mx-auto px-4 py-10">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <Link href="/" className="p-2 rounded-lg hover:bg-white text-gray-500">
-            ←
-          </Link>
-          <div>
-            <h1 className="text-2xl font-black text-gray-800">曲マスター</h1>
-            <p className="text-sm text-gray-500">2小節ずつ攻略して曲全体をマスターしよう</p>
-          </div>
+    <div className="stage">
+      <div className="fade-in" style={{ position: "relative", maxWidth: 880, margin: "0 auto", padding: "40px 40px 160px", zIndex: 2 }}>
+
+        {/* Back button */}
+        <Link href="/" style={{
+          display: "inline-flex", alignItems: "center", gap: 8,
+          background: "#fff", border: "1px solid rgba(140,120,200,0.12)",
+          color: "var(--lavender-700)", fontWeight: 700, borderRadius: 999,
+          padding: "10px 18px", cursor: "pointer", fontSize: 14,
+          boxShadow: "var(--card-shadow)", textDecoration: "none",
+          transition: "background .15s ease",
+        }}>
+          ← もどる
+        </Link>
+
+        {/* Heading */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "24px 0 24px" }}>
+          <h1 style={{
+            fontSize: "clamp(28px,4vw,40px)", margin: 0, fontWeight: 900, letterSpacing: "0.02em",
+            display: "flex", alignItems: "center", gap: 14,
+          }}>
+            <span style={{
+              width: 52, height: 52, borderRadius: 14, flexShrink: 0,
+              background: "linear-gradient(160deg,#EFE9FB,#DCD0F4)",
+              display: "grid", placeItems: "center", fontSize: 26,
+            }} aria-hidden="true">
+              <svg width="26" height="26" viewBox="0 0 32 32" fill="none">
+                <path d="M9 5h14v6a7 7 0 0 1-14 0V5Z" fill="#F2C535" stroke="#B8902A" strokeWidth="1.6" strokeLinejoin="round" />
+                <path d="M9 7H5v2a3 3 0 0 0 3 3M23 7h4v2a3 3 0 0 1-3 3" stroke="#B8902A" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+                <path d="M13 19h6v3h2v3H11v-3h2v-3Z" fill="#F2C535" stroke="#B8902A" strokeWidth="1.6" strokeLinejoin="round" />
+              </svg>
+            </span>
+            曲マスター
+          </h1>
         </div>
 
-        {/* How it works */}
-        <div className="bg-white rounded-xl p-4 mb-6 border border-gray-100 shadow-sm">
-          <h2 className="text-sm font-bold text-gray-600 mb-2">進め方</h2>
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <span className="px-2 py-0.5 rounded bg-purple-50 text-purple-600 border border-purple-100">2小節</span>
-            <span>→</span>
-            <span className="px-2 py-0.5 rounded bg-purple-50 text-purple-600 border border-purple-100">4小節</span>
-            <span>→</span>
-            <span className="px-2 py-0.5 rounded bg-purple-50 text-purple-600 border border-purple-100">8小節</span>
-            <span>→</span>
-            <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200 font-bold">全曲 🏆</span>
-          </div>
-          <p className="text-xs text-gray-400 mt-2">正解率 80% 以上でクリア → 次のセグメントへ</p>
+        {/* Step bar */}
+        <div role="tablist" aria-label="練習する範囲" style={{
+          display: "flex", gap: 10, marginBottom: 24,
+          background: "#fff", padding: 8, borderRadius: 999,
+          border: "1px solid rgba(140,120,200,0.10)",
+          boxShadow: "var(--card-shadow)", width: "max-content",
+        }}>
+          {(["2", "4", "8", "全"] as const).map((v) => (
+            <button
+              key={v}
+              role="tab"
+              aria-selected={step === v}
+              onClick={() => setStep(v)}
+              style={{
+                border: "none",
+                background: step === v ? "var(--lavender-500)" : "transparent",
+                color: step === v ? "#fff" : "var(--muted)",
+                fontWeight: 800, fontSize: 14,
+                padding: "10px 18px", borderRadius: 999, cursor: "pointer",
+                transition: "all .15s ease",
+              }}
+            >
+              {v === "全" ? "全曲" : `${v}小節`}
+            </button>
+          ))}
         </div>
 
-        {/* Piece List */}
-        <div className="grid gap-4">
-          {PIECES.sort((a, b) => a.difficulty - b.difficulty).map((piece) => {
+        {/* Song list */}
+        <div style={{ display: "grid", gap: 12 }}>
+          {sortedPieces.map((piece, idx) => {
             const progress = mounted ? songMaster[piece.slug] : undefined;
             const passedCount = progress?.segments.filter((s) => s.passed).length ?? 0;
             const totalSegments = progress?.segments.length ?? 0;
-            const phase = progress?.currentPhase ?? 1;
-            const phaseLabel = ["", "2小節", "4小節", "8小節", "全曲"][phase] ?? "2小節";
             const completionRate = totalSegments > 0 ? passedCount / totalSegments : 0;
+            const pct = Math.round(completionRate * 100);
 
             return (
               <Link
                 key={piece.slug}
                 href={`/song-master/${piece.slug}`}
                 onClick={() => handlePieceClick(piece.slug, piece.totalMeasures)}
-                className="group"
+                style={{ textDecoration: "none" }}
               >
-                <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:border-purple-200 hover:shadow-md transition-all">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center text-lg flex-shrink-0 group-hover:bg-purple-100 transition-colors">
-                      {completionRate >= 1 ? "🏆" : "🎵"}
+                <div style={{
+                  display: "grid", gridTemplateColumns: "56px 1fr auto",
+                  gap: 16, alignItems: "center",
+                  background: "#fff", padding: "18px 22px",
+                  borderRadius: 18, border: "1px solid rgba(140,120,200,0.08)",
+                  boxShadow: "var(--card-shadow)", cursor: "pointer",
+                  transition: "transform .2s ease, box-shadow .2s ease",
+                }}>
+                  <div style={{
+                    width: 40, height: 40, display: "grid", placeItems: "center",
+                    background: "var(--lavender-50)", color: "var(--lavender-700)",
+                    borderRadius: 12, fontWeight: 900, fontSize: 15,
+                  }}>
+                    {String(idx + 1).padStart(2, "0")}
+                  </div>
+                  <div>
+                    <h3 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 800, color: "var(--ink)" }}>
+                      {piece.title}
+                    </h3>
+                    <p style={{ margin: 0, color: "var(--muted)", fontSize: 13 }}>
+                      {piece.composer}
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, width: 200 }}>
+                    <div style={{ flex: 1, height: 8, background: "var(--lavender-50)", borderRadius: 999, overflow: "hidden" }}>
+                      <div style={{
+                        display: "block", height: "100%",
+                        background: "linear-gradient(90deg,var(--lavender-500),var(--pink))",
+                        borderRadius: 999, width: `${pct}%`,
+                        transition: "width .3s ease",
+                      }} />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-gray-800 truncate">{piece.title}</span>
-                        {completionRate >= 1 && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 border border-yellow-200 flex-shrink-0">
-                            MASTER
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-500">{piece.composer}</div>
-
-                      {/* Progress bar */}
-                      <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-purple-400 rounded-full transition-all"
-                          style={{ width: `${completionRate * 100}%` }}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-xs text-gray-400">
-                          {progress ? `${passedCount}/${totalSegments} クリア` : "未開始"}
-                        </span>
-                        <span className="text-xs text-purple-500 font-medium">
-                          {phaseLabel} フェーズ
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex-shrink-0 flex flex-col items-end gap-1">
-                      <span className="px-2 py-0.5 rounded-full bg-gray-50 text-gray-500 text-xs">
-                        Lv.{piece.difficulty}
-                      </span>
-                      <span className="text-xs text-gray-400">{piece.totalMeasures}小節</span>
+                    <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 700, minWidth: 36, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                      {pct}%
                     </div>
                   </div>
                 </div>
@@ -110,6 +143,6 @@ export default function SongMasterPage() {
           })}
         </div>
       </div>
-    </main>
+    </div>
   );
 }
