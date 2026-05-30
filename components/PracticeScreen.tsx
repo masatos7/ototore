@@ -494,6 +494,7 @@ export default function PracticeScreen({
           songMasterPath={songMasterPath}
           onListen={handleDemoFromResult}
           onRetry={handleRetryFromResult}
+          onBack={handleBack}
         />
       )}
 
@@ -508,11 +509,13 @@ function ResultModal({
   songMasterPath,
   onListen,
   onRetry,
+  onBack,
 }: {
   sessionResult: { accuracy: number; passed: boolean; correctCount: number; totalCount: number };
   songMasterPath?: string;
   onListen: () => void;
   onRetry: () => void;
+  onBack: () => void;
 }) {
   const pct = Math.round(sessionResult.accuracy);
   let title = "もう一度!";
@@ -594,6 +597,16 @@ function ResultModal({
                 曲マスターでこの曲を練習する
               </Link>
             )}
+            <button
+              onClick={onBack}
+              style={{
+                border: "none", background: "transparent",
+                color: "var(--muted)", fontWeight: 700, fontSize: 14,
+                padding: "10px", cursor: "pointer",
+              }}
+            >
+              ← やめる
+            </button>
           </div>
         )}
       </div>
