@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import JudgementOverlay from "./JudgementOverlay";
@@ -48,6 +49,8 @@ export default function PracticeScreen({
   onResult,
   onBack,
 }: PracticeScreenProps) {
+  const router = useRouter();
+  const handleBack = onBack ?? (() => router.back());
   const [bpm, setBpm] = useState(piece.bpm);
   const notesRef = useRef<ActiveNote[]>([]);
   const [noteEvents, setNoteEvents] = useState<NoteEvent[]>([]);
@@ -480,7 +483,7 @@ export default function PracticeScreen({
         <PauseModal
           onResume={handleStartPractice}
           onDemo={handleDemo}
-          onBack={onBack}
+          onBack={handleBack}
         />
       )}
 
@@ -606,7 +609,7 @@ function PauseModal({
 }: {
   onResume: () => void;
   onDemo: () => void;
-  onBack?: () => void;
+  onBack: () => void;
 }) {
   return (
     <div style={{
@@ -651,18 +654,16 @@ function PauseModal({
           >
             ♪ お手本を聴く
           </button>
-          {onBack && (
-            <button
-              onClick={onBack}
-              style={{
-                border: "none", background: "transparent",
-                color: "var(--muted)", fontWeight: 700, fontSize: 14,
-                padding: "10px", cursor: "pointer",
-              }}
-            >
-              ← やめる（一覧に戻る）
-            </button>
-          )}
+          <button
+            onClick={onBack}
+            style={{
+              border: "none", background: "transparent",
+              color: "var(--muted)", fontWeight: 700, fontSize: 14,
+              padding: "10px", cursor: "pointer",
+            }}
+          >
+            ← やめる
+          </button>
         </div>
       </div>
     </div>
