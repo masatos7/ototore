@@ -29,6 +29,7 @@ export default function PrintScoreModal({ piece, onClose }: Props) {
 
         const osmd = new OpenSheetMusicDisplay(container, {
           autoResize: false,
+          autoBeam: false,
           drawTitle: true,
           drawComposer: true,
           drawCredits: false,

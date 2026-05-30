@@ -85,6 +85,7 @@ export default function SheetMusicViewer({
 
       const osmd = new OpenSheetMusicDisplay(sheet, {
         autoResize: false,
+        autoBeam: false,
         drawTitle: false,
         drawComposer: false,
         drawCredits: false,
