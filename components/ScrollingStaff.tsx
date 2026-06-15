@@ -4,9 +4,9 @@ import { useEffect, useRef } from "react";
 import type { NoteEvent } from "@/lib/osmdUtils";
 import type { JudgementResult } from "@/lib/judgement";
 
-// Bravura rest glyph paths (extracted from Bravura.woff via fontTools)
+// Bravura glyph paths (extracted from Bravura.woff via fontTools)
 // Coordinate system: 250 units = 1 staff space, y-axis points UP (flip on canvas)
-// Each glyph origin (0,0) is the staff reference point for that rest type
+// Each glyph origin (0,0) is the staff/stem reference point for that glyph
 const BRAVURA_SCALE = 13 / 250; // 13 = LINE_SPACING
 
 // Path2D is browser-only — lazy-init to avoid SSR crash
@@ -29,6 +29,26 @@ function getRestPaths() {
     };
   }
   return _restPaths;
+}
+
+// Flag glyphs: origin = stem tip. flag8thUp/sixteenthUp for up-stems, Down variants for down-stems.
+const FLAG_SVG = {
+  eighthUp:     "M238 -790Q240 -786 251 -733Q262 -679 264 -617Q263 -523 230 -436Q198 -349 149 -274Q110 -215 81 -150Q53 -85 40 -13Q38 -1 32 4Q27 9 19 9Q11 9 5 6Q0 3 0 -6V-245Q52 -259 110 -334Q167 -409 197 -478Q208 -504 215 -544Q221 -583 221 -628Q221 -662 215 -696Q210 -731 197 -765Q194 -774 194 -780Q194 -792 200 -799Q205 -806 210 -809Q215 -812 224 -807Q234 -803 238 -790Z",
+  eighthDown:   "M240 760Q251 728 256 693Q261 657 261 623Q260 576 247 525Q233 474 221 446Q195 382 147 326Q98 271 0 236V1Q0 -6 5 -10Q10 -14 16 -14Q23 -14 31 -9Q38 -4 40 8Q55 79 98 145Q141 210 182 269Q231 344 268 431Q304 518 306 612Q305 672 295 720Q285 768 278 793Q276 801 272 805Q267 808 262 808Q250 808 242 795Q233 782 240 760Z",
+  sixteenthUp:  "M272 -796Q275 -790 277 -757Q279 -724 279 -686V-664Q279 -632 271 -602Q264 -572 250 -544Q250 -542 250 -540Q249 -538 249 -535Q249 -532 250 -528Q254 -522 264 -485Q274 -448 275 -401Q275 -391 274 -383Q274 -374 272 -365Q265 -317 241 -282Q217 -247 164 -191Q122 -152 87 -119Q51 -86 37 -11Q35 -3 29 0Q22 2 17 2Q12 2 6 0Q1 -3 0 -8V-396H5Q52 -393 103 -416Q155 -439 207 -540Q224 -576 232 -613Q239 -650 239 -689Q239 -733 231 -778Q230 -781 230 -783Q230 -785 230 -787Q230 -797 236 -805Q241 -813 252 -813Q257 -813 262 -809Q267 -806 272 -796ZM209 -459Q197 -441 184 -424Q171 -408 155 -390Q119 -352 88 -320Q58 -289 41 -230Q40 -228 40 -227Q40 -224 44 -220Q48 -217 54 -217H62Q108 -219 147 -251Q185 -283 210 -322Q224 -342 230 -364Q237 -387 237 -411Q237 -416 237 -421Q237 -426 236 -431Q235 -437 234 -444Q233 -451 229 -457Q228 -459 224 -461Q220 -463 216 -463Q212 -463 209 -459Z",
+  sixteenthDown:"M240 786Q252 722 248 657Q245 592 217 533Q164 432 108 409Q52 385 5 388H0V1Q0 -3 5 -6Q9 -9 17 -9Q23 -9 29 -7Q35 -4 37 4Q66 112 160 180Q253 247 282 358Q285 375 285 394Q284 441 274 478Q264 515 260 521Q259 524 259 528Q259 531 260 533Q260 535 260 537Q286 595 290 662Q294 729 281 790Q277 806 272 810Q266 813 257 812Q248 811 243 805Q238 799 240 786ZM226 456Q230 456 234 454Q238 452 239 449Q243 444 244 437Q245 430 246 424Q247 413 247 404Q247 354 220 315Q194 276 152 244Q109 212 62 210H54Q48 210 44 213Q40 216 40 220Q40 222 41 223Q58 282 93 313Q128 345 165 383Q181 400 194 416Q207 433 219 452Q222 456 226 456Z",
+};
+let _flagPaths: { eighthUp: Path2D; eighthDown: Path2D; sixteenthUp: Path2D; sixteenthDown: Path2D } | null = null;
+function getFlagPaths() {
+  if (!_flagPaths) {
+    _flagPaths = {
+      eighthUp:     new Path2D(FLAG_SVG.eighthUp),
+      eighthDown:   new Path2D(FLAG_SVG.eighthDown),
+      sixteenthUp:  new Path2D(FLAG_SVG.sixteenthUp),
+      sixteenthDown:new Path2D(FLAG_SVG.sixteenthDown),
+    };
+  }
+  return _flagPaths;
 }
 
 const CLEF_BASE_W  = 68;
@@ -349,9 +369,17 @@ export default function ScrollingStaff({
             const natTip = (midi: number) => {
               const s = midiToStep(midi);
               const noteY = sy(s);
-              return up
-                ? Math.min(noteY - LINE_SPACING * 3.5, trebleStaffTop - 2)
-                : Math.max(noteY + LINE_SPACING * 3.5, floorY + 2);
+              const stemLen = LINE_SPACING * 3.5;
+              const isBass = part === 1;
+              const withinStaff = isBass ? (s >= -12 && s <= -4) : (s >= 0 && s <= 8);
+              const midlineY = isBass ? sy(-8) : sy(4);
+              if (up) {
+                const nat = noteY - stemLen;
+                return withinStaff ? Math.min(nat, midlineY) : nat;
+              } else {
+                const nat = noteY + stemLen;
+                return withinStaff ? Math.max(nat, midlineY) : nat;
+              }
             };
 
             // Slanted beam: interpolate between natural tips of first and last notes,
@@ -532,13 +560,23 @@ export default function ScrollingStaff({
         if (durBeats < 3.8) {
           const up = note.part === 1 ? false : step < 4;
           const sx2 = up ? nx + NRX - 1 : nx - NRX + 1;
-          const stemFloor = note.part === 1 ? bassBottomY : trebleStaffBottom;
           const beamGi = beamGroupOf.get(ni);
-          const sy2 = beamGi !== undefined
-            ? (beamStemTipY.get(ni) ?? beamGroupsList[beamGi].stemTipYs[0])
-            : (up
-                ? Math.min(ny - LINE_SPACING * 3.5, trebleStaffTop - 2)
-                : Math.max(ny + LINE_SPACING * 3.5, stemFloor + 2));
+          let sy2: number;
+          if (beamGi !== undefined) {
+            sy2 = beamStemTipY.get(ni) ?? beamGroupsList[beamGi].stemTipYs[0];
+          } else {
+            const stemLen = LINE_SPACING * 3.5;
+            const isBass = note.part === 1;
+            const withinStaff = isBass ? (step >= -12 && step <= -4) : (step >= 0 && step <= 8);
+            const midlineY = isBass ? sy(-8) : sy(4);
+            if (up) {
+              const nat = ny - stemLen;
+              sy2 = withinStaff ? Math.min(nat, midlineY) : nat;
+            } else {
+              const nat = ny + stemLen;
+              sy2 = withinStaff ? Math.max(nat, midlineY) : nat;
+            }
+          }
 
           if (beamGi !== undefined) {
             beamNxMap.set(ni, nx);
@@ -553,29 +591,17 @@ export default function ScrollingStaff({
           ctx.lineWidth = 1;
 
           if (beamGi === undefined && durBeats < 0.6 && durBeats >= 0.15) {
-            // Filled flag shape — mimics Bravura glyph style
-            const fH = LINE_SPACING * 1.5;   // flag height (vertical extent)
-            const fW = LINE_SPACING * 1.15;  // flag width  (horizontal extent)
-            const numFlags = durBeats < 0.3 ? 2 : 1;
+            const fp = getFlagPaths();
+            const is16th = durBeats < 0.3;
+            const flagPath = up
+              ? (is16th ? fp.sixteenthUp : fp.eighthUp)
+              : (is16th ? fp.sixteenthDown : fp.eighthDown);
             ctx.fillStyle = stroke;
-            for (let fi = 0; fi < numFlags; fi++) {
-              const yOff = fi * LINE_SPACING * 0.65 * (up ? 1 : -1);
-              const ty = sy2 + yOff;
-              ctx.beginPath();
-              if (up) {
-                ctx.moveTo(sx2, ty);
-                // Outer edge: sweep right then curve down to a point
-                ctx.bezierCurveTo(sx2 + fW * 1.55, ty + fH * 0.04, sx2 + fW * 1.4, ty + fH * 0.88, sx2 + fW * 0.04, ty + fH * 1.1);
-                // Inner edge: return toward stem tip
-                ctx.bezierCurveTo(sx2 + fW * 0.5, ty + fH * 0.72, sx2 + fW * 0.5, ty + fH * 0.22, sx2, ty + LINE_SPACING * 0.4);
-              } else {
-                ctx.moveTo(sx2, ty);
-                ctx.bezierCurveTo(sx2 + fW * 1.55, ty - fH * 0.04, sx2 + fW * 1.4, ty - fH * 0.88, sx2 + fW * 0.04, ty - fH * 1.1);
-                ctx.bezierCurveTo(sx2 + fW * 0.5, ty - fH * 0.72, sx2 + fW * 0.5, ty - fH * 0.22, sx2, ty - LINE_SPACING * 0.4);
-              }
-              ctx.closePath();
-              ctx.fill();
-            }
+            ctx.save();
+            ctx.translate(sx2, sy2);
+            ctx.scale(BRAVURA_SCALE, -BRAVURA_SCALE);
+            ctx.fill(flagPath);
+            ctx.restore();
           }
         }
 

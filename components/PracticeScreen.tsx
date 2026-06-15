@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import JudgementOverlay from "./JudgementOverlay";
 import ScrollingStaff from "./ScrollingStaff";
@@ -225,6 +224,23 @@ export default function PracticeScreen({
   const showPausedPanel = status === "idle" && isPaused && !autoStarting;
   const isIdle = status === "idle" && !autoStarting && !isPaused && (!alwaysAdvance);
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== "Space") return;
+      if (e.target instanceof HTMLButtonElement || e.target instanceof HTMLInputElement) return;
+      e.preventDefault();
+      if (isActive) {
+        handleStop();
+      } else if (showPausedPanel && !demoIsPlaying) {
+        handleStartPractice();
+      } else if (demoIsPlaying) {
+        demoStop();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isActive, showPausedPanel, demoIsPlaying, handleStop, handleStartPractice, demoStop]);
+
   const badgeLabel = rangeLabel ?? `${endMeasure - startMeasure}小節`;
   const bpmFill = `${((bpm - 40) / 160) * 100}%`;
   const presets = [60, 80, 100, 120];
@@ -410,21 +426,7 @@ export default function PracticeScreen({
           </div>
 
           {/* Action buttons */}
-          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr 1.4fr", gap: 12, alignItems: "stretch" }}>
-            <div style={{
-              width: 52, height: 52, borderRadius: "50%",
-              background: "#FFE4F0", overflow: "hidden",
-              display: "grid", placeItems: "center",
-              boxShadow: "0 2px 8px rgba(255,122,182,0.25)", alignSelf: "center",
-            }}>
-              <Image
-                src="/images/top-img.png"
-                alt=""
-                width={58}
-                height={58}
-                style={{ width: "120%", height: "120%", objectFit: "cover", objectPosition: "28% 30%" }}
-              />
-            </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 12, alignItems: "stretch" }}>
             <button
               onClick={handleDemo}
               style={{
