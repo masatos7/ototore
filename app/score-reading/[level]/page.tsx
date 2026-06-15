@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useCallback } from "react";
+import { use, useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { PIECES, type Difficulty } from "@/lib/pieces";
 import PracticeScreen from "@/components/PracticeScreen";
@@ -18,6 +18,8 @@ export default function ScoreReadingLevelPage({ params }: PageProps) {
   const [selectedPiece, setSelectedPiece] = useState<Piece | null>(null);
   const [currentMeasure, setCurrentMeasure] = useState(0);
   const [totalMeasures, setTotalMeasures] = useState(4);
+
+  useEffect(() => { useProgressStore.persist.rehydrate(); }, []);
 
   const { updateScoreReading } = useProgressStore();
 

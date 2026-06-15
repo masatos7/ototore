@@ -134,8 +134,9 @@ export default function ScrollingStaff({
     const container = canvas.parentElement!;
 
     const resize = () => {
-      canvas.width  = container.offsetWidth;
-      canvas.height = container.offsetHeight;
+      const dpr = window.devicePixelRatio ?? 1;
+      canvas.width  = container.offsetWidth  * dpr;
+      canvas.height = container.offsetHeight * dpr;
     };
     resize();
     const ro = new ResizeObserver(resize);
@@ -149,13 +150,19 @@ export default function ScrollingStaff({
     let raf: number;
 
     const draw = () => {
-      // Keep canvas pixel dims in sync with CSS dims every frame to avoid
-      // stretching when the container height changes (e.g. single→grand staff).
-      if (canvas.width  !== container.offsetWidth)  canvas.width  = container.offsetWidth;
-      if (canvas.height !== container.offsetHeight) canvas.height = container.offsetHeight;
+      const dpr = window.devicePixelRatio ?? 1;
+      const layoutW = container.offsetWidth;
+      const layoutH = container.offsetHeight;
+      // Keep canvas pixel dims in sync (DPR-aware) to avoid stretching.
+      if (canvas.width  !== layoutW * dpr) canvas.width  = layoutW * dpr;
+      if (canvas.height !== layoutH * dpr) canvas.height = layoutH * dpr;
 
-      const W       = canvas.width;
-      const H       = canvas.height;
+      // Scale all drawing to logical (CSS) coordinates so the rest of the code
+      // is DPR-unaware — Retina gets crisper output automatically.
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const W       = layoutW;
+      const H       = layoutH;
       const elapsed = elapsedRef.current;
       const jArr    = judgementsRef.current;
       const ks      = keySigRef.current;
