@@ -55,7 +55,7 @@ const CLEF_BASE_W  = 68;
 const KS_SPACING   = 9;
 const KS_START_X   = 64;
 const LINE_SPACING = 13;
-const SCROLL_SPEED = 260;
+const PIXELS_PER_BEAT = 130; // px per quarter-note beat, BPM-invariant spacing
 
 const DIATONIC = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6];
 
@@ -162,6 +162,7 @@ export default function ScrollingStaff({
       const allNotes = notesRef.current;
 
       const hasBass = allNotes.some(n => n.part === 1);
+      const scrollSpeed = PIXELS_PER_BEAT * bpm / 60; // px/s, scales with BPM
 
       // ── Clef panel width ─────────────────────────────────────────────
       const numKs  = Math.abs(ks);
@@ -297,7 +298,7 @@ export default function ScrollingStaff({
         const boundaryTimeSec = mi * measureDur;
         let x: number;
         if (mi === totalMeasures || allNotes.length === 0) {
-          x = playheadX + (boundaryTimeSec - elapsed) * SCROLL_SPEED;
+          x = playheadX + (boundaryTimeSec - elapsed) * scrollSpeed;
         } else {
           const eps = 0.01;
           let prevTime = -Infinity, nextTime = Infinity;
@@ -306,9 +307,9 @@ export default function ScrollingStaff({
             if (note.startTimeSec >= boundaryTimeSec - eps && note.startTimeSec < nextTime) nextTime = note.startTimeSec;
           }
           if (prevTime > -Infinity && nextTime < Infinity) {
-            x = (playheadX + (prevTime - elapsed) * SCROLL_SPEED + playheadX + (nextTime - elapsed) * SCROLL_SPEED) / 2;
+            x = (playheadX + (prevTime - elapsed) * scrollSpeed + playheadX + (nextTime - elapsed) * scrollSpeed) / 2;
           } else {
-            x = playheadX + (boundaryTimeSec - elapsed) * SCROLL_SPEED;
+            x = playheadX + (boundaryTimeSec - elapsed) * scrollSpeed;
           }
         }
         if (x <= clefW || x > W + 2) continue;
@@ -427,7 +428,7 @@ export default function ScrollingStaff({
 
       for (let ni = 0; ni < allNotes.length; ni++) {
         const note = allNotes[ni];
-        const nx = playheadX + (note.startTimeSec - elapsed) * SCROLL_SPEED;
+        const nx = playheadX + (note.startTimeSec - elapsed) * scrollSpeed;
         if (nx > W + 24 || nx < clefW - 30) continue;
 
         const past = note.startTimeSec < elapsed - 0.05;
@@ -609,7 +610,7 @@ export default function ScrollingStaff({
         const j = jArr[ni];
         if (j?.judgement === "wrong" && j.detectedMidi != null) {
           const wx = j.detectedTimeSec != null
-            ? playheadX + (j.detectedTimeSec - elapsed) * SCROLL_SPEED
+            ? playheadX + (j.detectedTimeSec - elapsed) * scrollSpeed
             : nx;
           const ws = midiToStep(j.detectedMidi);
           const wy = sy(ws);
@@ -667,8 +668,8 @@ export default function ScrollingStaff({
       for (const { fromNi, toNi } of tiePairs) {
         const fromNote = allNotes[fromNi];
         const toNote   = allNotes[toNi];
-        const x1 = playheadX + (fromNote.startTimeSec - elapsed) * SCROLL_SPEED + NRX + 2;
-        const x2 = playheadX + (toNote.startTimeSec   - elapsed) * SCROLL_SPEED - NRX - 2;
+        const x1 = playheadX + (fromNote.startTimeSec - elapsed) * scrollSpeed + NRX + 2;
+        const x2 = playheadX + (toNote.startTimeSec   - elapsed) * scrollSpeed - NRX - 2;
         if (x1 > W + 20 || x2 < clefW - 20 || x2 <= x1) continue;
         const step = midiToStep(fromNote.midiNote);
         const tieY = sy(step);
